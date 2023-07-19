@@ -42,6 +42,11 @@ impl ChatLLM {
         self.temperature = temperature;
         self
     }
+
+    pub fn add_message_history(mut self, messages: Messages) -> Self {
+        self.messages = messages;
+        self
+    }
 }
 
 impl Default for ChatLLM {
