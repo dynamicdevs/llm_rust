@@ -8,9 +8,14 @@ pub enum OpenaiError {
     ServerError { code: u16, detail: String },
     EngineOverloaded { code: u16, detail: String },
     UnknownError { code: u16, detail: String },
+    GenericError(String),
 }
 
 impl OpenaiError {
+    pub fn new_generic_error(msg: String) -> Self {
+        OpenaiError::GenericError(msg)
+    }
+
     pub fn from_http_status(code: u16, detail: String) -> Self {
         match code {
             401 => {
@@ -84,6 +89,9 @@ impl std::fmt::Display for OpenaiError {
             }
             OpenaiError::UnknownError { code, detail } => {
                 write!(f, "Error code {}: Unknown error - {}", code, detail)
+            }
+            OpenaiError::GenericError(_) => {
+                write!(f, "An unknown error occurred with the OpenAI API.")
             }
         }
     }
