@@ -76,7 +76,7 @@ fn message_from_map(
     };
 
     match message_type.as_str() {
-        "human" => {
+        "user" => {
             let content = message.get("content").unwrap_or(&String::from("")).clone();
             Ok(Box::new(HumanMessage {
                 content: content.to_string(),
@@ -90,7 +90,7 @@ fn message_from_map(
             }))
         }
 
-        "ai" => {
+        "assistant" => {
             let content = message.get("content").unwrap_or(&String::from("")).clone();
             Ok(Box::new(AIMessage {
                 content: content.to_string(),
