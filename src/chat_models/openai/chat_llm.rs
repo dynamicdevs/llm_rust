@@ -71,7 +71,7 @@ impl Default for ChatOpenAI {
 impl ChatTrait for ChatOpenAI {
     async fn generate(
         &self,
-        messages: Vec<Vec<Box<dyn BaseMessage + 'static>>>,
+        messages: Vec<Vec<Box<dyn BaseMessage>>>,
     ) -> Result<AIMessage, ApiError> {
         let flattened_messages: Vec<Message> = messages
             .into_iter()
