@@ -10,7 +10,7 @@ use crate::{
             message_type::Message,
             openai_api::{ApiRequest, ApiResponse},
         },
-        AIMessage, BaseMessage,
+        AIMessage, BaseMessage, HumanMessage,
     },
     errors::{openai_errors::OpenaiError, ApiError},
 };
@@ -130,5 +130,12 @@ impl ChatTrait for ChatOpenAI {
                 Err(ApiError::OpenaiError(error))
             }
         }
+    }
+
+    async fn call(&self, query: String) -> Result<String, ApiError> {
+        let message = HumanMessage::new(query);
+        self.generate(vec![vec![Box::new(message)]])
+            .await
+            .map(|ai_message| ai_message.content)
     }
 }
