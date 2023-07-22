@@ -18,7 +18,7 @@ impl HumanMessage {
 }
 impl BaseMessage for HumanMessage {
     fn get_type(&self) -> String {
-        String::from("human")
+        String::from("user")
     }
 
     fn get_content(&self) -> String {
@@ -54,7 +54,7 @@ impl AIMessage {
 }
 impl BaseMessage for AIMessage {
     fn get_type(&self) -> String {
-        String::from("ai")
+        String::from("assistant")
     }
 
     fn get_content(&self) -> String {
