@@ -8,21 +8,52 @@ This Rust library provides easy-to-use functionality for interacting with variou
 - Embed documents
 - Embed queries
 - Manage errors from OpenAI's API
+- Chat models
 
 ## Usage
 
-### Text Generation
+### Chat Generation
 
-You can generate text completions using the following:
+_You can generate a Open AI text completions using the following:_
 
 ```rust
-use llm::llm_trait::LLM;
-use llm::ChatLLM;
-use llm::openai_models::ChatModel;
-
-let mut chat_llm = ChatLLM::default();
-let text = chat_llm.generate_completition("Hello, how are you?").await.unwrap();
+let mut chat_llm = ChatOpenAI::default();
+let text = chat_llm.execute("Hello, how are you?").await.unwrap();
 println!("{}", text);
+```
+
+_or a custom model_
+
+```rust
+let mut chat_llm = ChatOpenAI::default().with_model(ChatModel::Gpt3_5Turbo16k);
+let text = chat_llm.execute("Hello, how are you?").await.unwrap();
+println!("{}", text);
+```
+
+_more complex emaple_
+
+```rust
+let chat_llm = ChatOpenAI::default().with_model(ChatModel::Gpt3_5Turbo16k);
+
+ let json_str = r#"
+    {
+        "type": "user",
+        "content": "Hello,how are you"
+    }
+    "#;
+
+    // Deserialize JSON string into a HashMap
+let messages: HashMap<String, String> = serde_json::from_str(json_str).unwrap();
+let mut messages = messages_from_map(vec![mesagges]).unwrap();
+
+let response =
+    .chat_llm
+    .generate(vec![messages.clone()])
+    .await
+    .unwrap();
+
+let messages=messages_to_map(messages)
+println!("{:?}", messages);
 ```
 
 ## Document Embedding
@@ -31,7 +62,7 @@ println!("{}", text);
 use llm::embedding::embedder_trait::Embedder;
 use llm::OpenAiEmbedder;
 
-let embedder = OpenAiEmbedder::new("OPENAI_API_KEY".to_string());
+let embedder = OpenAiEmbedder::default();
 let embeddings = embedder.embed_documents(vec!["Hello, how are you?".to_string()]).await.unwrap();
 println!("{:?}", embeddings);
 
