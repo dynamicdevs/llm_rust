@@ -6,8 +6,15 @@ use std::{
 pub trait BaseMessage: Send + Sync {
     fn get_type(&self) -> String;
     fn get_content(&self) -> String;
+    fn clone_box(&self) -> Box<dyn BaseMessage>;
+}
+impl Clone for Box<dyn BaseMessage> {
+    fn clone(&self) -> Box<dyn BaseMessage> {
+        self.clone_box()
+    }
 }
 
+#[derive(Clone)]
 pub struct HumanMessage {
     pub content: String,
 }
@@ -24,8 +31,12 @@ impl BaseMessage for HumanMessage {
     fn get_content(&self) -> String {
         self.content.clone()
     }
+    fn clone_box(&self) -> Box<dyn BaseMessage> {
+        Box::new(self.clone())
+    }
 }
 
+#[derive(Clone)]
 pub struct SystemMessage {
     pub content: String,
 }
@@ -42,8 +53,13 @@ impl BaseMessage for SystemMessage {
     fn get_content(&self) -> String {
         self.content.clone()
     }
+
+    fn clone_box(&self) -> Box<dyn BaseMessage> {
+        Box::new(self.clone())
+    }
 }
 
+#[derive(Clone)]
 pub struct AIMessage {
     pub content: String,
 }
@@ -59,6 +75,10 @@ impl BaseMessage for AIMessage {
 
     fn get_content(&self) -> String {
         self.content.clone()
+    }
+
+    fn clone_box(&self) -> Box<dyn BaseMessage> {
+        Box::new(self.clone())
     }
 }
 
