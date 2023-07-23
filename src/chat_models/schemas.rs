@@ -130,15 +130,15 @@ pub fn messages_from_map(
     messages.into_iter().map(message_from_map).collect()
 }
 
-fn message_to_map(message: Box<dyn BaseMessage>) -> HashMap<String, String> {
+fn message_to_map<T: BaseMessage>(message: T) -> HashMap<String, String> {
     let mut map = HashMap::new();
 
-    map.insert("type".to_string(), message.get_type());
-    map.insert("content".to_string(), message.get_content());
+    map.insert("type".to_string(), message.get_type().to_string());
+    map.insert("content".to_string(), message.get_content().to_string());
 
     map
 }
 
-pub fn messages_to_map(messages: Vec<Box<dyn BaseMessage>>) -> Vec<HashMap<String, String>> {
+pub fn messages_to_map<T: BaseMessage>(messages: Vec<T>) -> Vec<HashMap<String, String>> {
     messages.into_iter().map(message_to_map).collect()
 }
