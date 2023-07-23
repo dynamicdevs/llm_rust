@@ -3,11 +3,18 @@ use std::{
     io::{self, ErrorKind},
 };
 
-pub trait BaseMessage: Send {
+pub trait BaseMessage: Send + Sync {
     fn get_type(&self) -> String;
     fn get_content(&self) -> String;
+    fn clone_box(&self) -> Box<dyn BaseMessage>;
+}
+impl Clone for Box<dyn BaseMessage> {
+    fn clone(&self) -> Box<dyn BaseMessage> {
+        self.clone_box()
+    }
 }
 
+#[derive(Clone)]
 pub struct HumanMessage {
     pub content: String,
 }
@@ -24,8 +31,12 @@ impl BaseMessage for HumanMessage {
     fn get_content(&self) -> String {
         self.content.clone()
     }
+    fn clone_box(&self) -> Box<dyn BaseMessage> {
+        Box::new(self.clone())
+    }
 }
 
+#[derive(Clone)]
 pub struct SystemMessage {
     pub content: String,
 }
@@ -42,8 +53,13 @@ impl BaseMessage for SystemMessage {
     fn get_content(&self) -> String {
         self.content.clone()
     }
+
+    fn clone_box(&self) -> Box<dyn BaseMessage> {
+        Box::new(self.clone())
+    }
 }
 
+#[derive(Clone)]
 pub struct AIMessage {
     pub content: String,
 }
@@ -59,6 +75,10 @@ impl BaseMessage for AIMessage {
 
     fn get_content(&self) -> String {
         self.content.clone()
+    }
+
+    fn clone_box(&self) -> Box<dyn BaseMessage> {
+        Box::new(self.clone())
     }
 }
 
@@ -110,7 +130,7 @@ pub fn messages_from_map(
     messages.into_iter().map(message_from_map).collect()
 }
 
-fn message_to_map(message: Box<dyn BaseMessage>) -> HashMap<String, String> {
+fn message_to_map<T: BaseMessage>(message: T) -> HashMap<String, String> {
     let mut map = HashMap::new();
 
     map.insert("type".to_string(), message.get_type());
@@ -119,6 +139,6 @@ fn message_to_map(message: Box<dyn BaseMessage>) -> HashMap<String, String> {
     map
 }
 
-pub fn messages_to_map(messages: Vec<Box<dyn BaseMessage>>) -> Vec<HashMap<String, String>> {
+pub fn messages_to_map<T: BaseMessage>(messages: Vec<T>) -> Vec<HashMap<String, String>> {
     messages.into_iter().map(message_to_map).collect()
 }
