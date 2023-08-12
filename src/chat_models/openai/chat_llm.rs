@@ -10,9 +10,9 @@ use crate::{
             message_type::Message,
             openai_api::{ApiRequest, ApiResponse},
         },
-        AIMessage, BaseMessage, HumanMessage,
     },
     errors::{openai_errors::OpenaiError, ApiError},
+    schemas::messages::{AIMessage, BaseMessage, HumanMessage},
 };
 
 #[derive(Debug)]

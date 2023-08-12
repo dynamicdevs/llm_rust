@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::chat_models::BaseMessage;
+use crate::schemas::messages::BaseMessage;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Message {

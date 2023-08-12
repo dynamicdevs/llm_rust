@@ -1,8 +1,9 @@
 use async_trait::async_trait;
 
-use crate::errors::ApiError;
-
-use super::schemas::{AIMessage, BaseMessage};
+use crate::{
+    errors::ApiError,
+    schemas::messages::{AIMessage, BaseMessage},
+};
 
 #[async_trait]
 pub trait ChatTrait: Send + Sync {
