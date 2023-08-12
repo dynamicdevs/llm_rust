@@ -3,3 +3,4 @@ pub mod chat_models;
 pub mod embedding;
 pub mod errors;
 pub mod schemas;
+pub mod tools;
