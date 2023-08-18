@@ -11,6 +11,4 @@ pub trait ChatTrait: Send + Sync {
         &self,
         messages: Vec<Vec<Box<dyn BaseMessage>>>,
     ) -> Result<AIMessage, ApiError>;
-
-    async fn call(&self, query: String) -> Result<String, ApiError>;
 }
