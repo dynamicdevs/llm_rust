@@ -82,7 +82,7 @@ impl BaseMessage for AIMessage {
     }
 }
 
-fn message_from_map(
+pub fn message_from_map(
     message: HashMap<String, String>,
 ) -> Result<Box<dyn BaseMessage>, Box<dyn std::error::Error + Send>> {
     let message_type = match message.get("type") {
@@ -130,7 +130,7 @@ pub fn messages_from_map(
     messages.into_iter().map(message_from_map).collect()
 }
 
-fn message_to_map(message: Box<dyn BaseMessage>) -> HashMap<String, String> {
+pub fn message_to_map(message: Box<dyn BaseMessage>) -> HashMap<String, String> {
     let mut map = HashMap::new();
 
     map.insert("type".to_string(), message.get_type());
