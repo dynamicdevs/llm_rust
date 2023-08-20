@@ -6,6 +6,7 @@ use crate::{
     chat_models::chat_model_trait::ChatTrait,
     errors::ApiError,
     schemas::{
+        memory::BaseChatMessageHistory,
         messages::BaseMessage,
         prompt::{BasePromptValue, PromptData},
     },
@@ -13,14 +14,23 @@ use crate::{
 
 use super::chain_trait::ChainTrait;
 
-//tengo que creatr el prompt
 pub struct LLMChain {
     prompt: Box<dyn BasePromptValue>,
     llm: Box<dyn ChatTrait>,
+    pub memory: Option<Box<dyn BaseChatMessageHistory>>,
 }
 impl LLMChain {
     pub fn new(prompt: Box<dyn BasePromptValue>, llm: Box<dyn ChatTrait>) -> Self {
-        Self { prompt, llm }
+        Self {
+            prompt,
+            llm,
+            memory: None,
+        }
+    }
+
+    pub fn with_memory(mut self, memory: Box<dyn BaseChatMessageHistory>) -> Self {
+        self.memory = Some(memory);
+        self
     }
 }
 
@@ -28,12 +38,33 @@ impl LLMChain {
 impl ChainTrait<HashMap<String, String>> for LLMChain {
     async fn run(&mut self, inputs: HashMap<String, String>) -> Result<String, ApiError> {
         self.prompt.add_values(PromptData::HashMapData(inputs));
-        let messages = self
+        let memory_messages = self
+            .memory
+            .as_ref()
+            .map_or(Vec::new(), |memory| memory.messages());
+
+        let prompt_messages = self
             .prompt
             .to_chat_messages()
             .map_err(|e| ApiError::PromptError(e))?;
 
-        let ai_response = self.llm.generate(vec![messages]).await?;
+        let ai_response = self
+            .llm
+            .generate(vec![prompt_messages.clone(), memory_messages])
+            .await?;
+
+        match self.memory.as_mut() {
+            Some(memory) => {
+                prompt_messages.iter().for_each(|message| {
+                    if message.get_type() == "human".to_string() {
+                        memory.add_message(message.clone());
+                    }
+                });
+                memory.add_message(Box::new(ai_response.clone()));
+            }
+            None => {}
+        }
+
         Ok(ai_response.get_content())
     }
 }
@@ -41,12 +72,31 @@ impl ChainTrait<HashMap<String, String>> for LLMChain {
 impl ChainTrait<String> for LLMChain {
     async fn run(&mut self, inputs: String) -> Result<String, ApiError> {
         self.prompt.add_values(PromptData::VecData(vec![inputs]));
-        let messages = self
+        let memory_messages = self
+            .memory
+            .as_ref()
+            .map_or(Vec::new(), |memory| memory.messages());
+        let prompt_messages = self
             .prompt
             .to_chat_messages()
             .map_err(|e| ApiError::PromptError(e))?;
 
-        let ai_response = self.llm.generate(vec![messages]).await?;
+        let ai_response = self
+            .llm
+            .generate(vec![prompt_messages.clone(), memory_messages])
+            .await?;
+
+        match self.memory.as_mut() {
+            Some(memory) => {
+                prompt_messages.iter().for_each(|message| {
+                    if message.get_type() == "human".to_string() {
+                        memory.add_message(message.clone());
+                    }
+                });
+                memory.add_message(Box::new(ai_response.clone()));
+            }
+            None => {}
+        }
         Ok(ai_response.get_content())
     }
 }

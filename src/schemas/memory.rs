@@ -1,6 +1,6 @@
 use super::messages::{AIMessage, BaseMessage, HumanMessage};
 
-pub trait BaseChatMessageHistory {
+pub trait BaseChatMessageHistory: Send + Sync {
     fn messages(&self) -> Vec<Box<dyn BaseMessage>>;
 
     fn add_user_message(&mut self, message: &str) {
