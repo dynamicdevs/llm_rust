@@ -9,6 +9,7 @@ pub use prompt_errors::PromptError;
 pub enum ApiError {
     OpenaiError(OpenaiError),
     AWSError(AWSError),
+    PromptError(PromptError),
 }
 
 impl std::fmt::Display for ApiError {
@@ -16,6 +17,7 @@ impl std::fmt::Display for ApiError {
         match self {
             ApiError::OpenaiError(err) => write!(f, "OpenAI error: {}", err),
             ApiError::AWSError(err) => write!(f, "AWS error: {}", err),
+            ApiError::PromptError(err) => write!(f, "Prompt error: {}", err),
         }
     }
 }

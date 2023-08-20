@@ -9,6 +9,6 @@ impl InputType for HashMap<String, String> {}
 impl InputType for String {}
 
 #[async_trait]
-pub trait ChainTrait<T: InputType> {
-    async fn run(&self, inputs: T) -> Result<String, ApiError>;
+pub trait ChainTrait<T: InputType>: Send + Sync {
+    async fn run(&mut self, inputs: T) -> Result<String, ApiError>;
 }
