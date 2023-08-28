@@ -77,6 +77,7 @@ impl ChatTrait for ChatOpenAI {
             .into_iter()
             .flat_map(|inner_messages| Message::from_base_messages(inner_messages))
             .collect();
+        log::debug!("flattened_messages: {:?}", flattened_messages);
 
         let client = Client::new();
         let api_request = ApiRequest {
