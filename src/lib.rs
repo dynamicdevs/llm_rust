@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+pub mod agents;
 pub mod ai_helpers;
 pub mod chains;
 pub mod chat_models;
