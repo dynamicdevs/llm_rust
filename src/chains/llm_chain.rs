@@ -14,12 +14,13 @@ use crate::{
 
 use super::chain_trait::ChainTrait;
 
-pub struct LLMChain {
+pub struct LLMChain<'a> {
     prompt: Box<dyn BasePromptValue>,
     llm: Box<dyn ChatTrait>,
-    pub memory: Option<Box<dyn BaseChatMessageHistory>>,
+    pub memory: Option<&'a mut dyn BaseChatMessageHistory>,
 }
-impl LLMChain {
+
+impl<'a> LLMChain<'a> {
     pub fn new(prompt: Box<dyn BasePromptValue>, llm: Box<dyn ChatTrait>) -> Self {
         Self {
             prompt,
@@ -28,14 +29,14 @@ impl LLMChain {
         }
     }
 
-    pub fn with_memory(mut self, memory: Box<dyn BaseChatMessageHistory>) -> Self {
+    pub fn with_memory(mut self, memory: &'a mut dyn BaseChatMessageHistory) -> Self {
         self.memory = Some(memory);
         self
     }
 }
 
 #[async_trait]
-impl ChainTrait<HashMap<String, String>> for LLMChain {
+impl<'a> ChainTrait<HashMap<String, String>> for LLMChain<'a> {
     async fn run(&mut self, inputs: HashMap<String, String>) -> Result<String, ApiError> {
         self.prompt.add_values(PromptData::HashMapData(inputs));
         let memory_messages = self
@@ -69,7 +70,7 @@ impl ChainTrait<HashMap<String, String>> for LLMChain {
     }
 }
 #[async_trait]
-impl ChainTrait<String> for LLMChain {
+impl<'a> ChainTrait<String> for LLMChain<'a> {
     async fn run(&mut self, inputs: String) -> Result<String, ApiError> {
         self.prompt.add_values(PromptData::VecData(vec![inputs]));
         let memory_messages = self
