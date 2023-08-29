@@ -92,7 +92,9 @@ impl<'a> ChainTrait<String> for LLMChain<'a> {
         match self.memory.as_mut() {
             Some(memory) => {
                 prompt_messages.iter().for_each(|message| {
-                    if message.get_type() == "human".to_string() {
+                    log::debug!("message:{:?}", message.get_content());
+                    if message.get_type() != "system".to_string() {
+                        log::debug!("Adding to memory:{:?}", message.get_content());
                         memory.add_message(message.clone());
                     }
                 });
