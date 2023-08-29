@@ -58,6 +58,7 @@ impl<'a> ChainTrait<HashMap<String, String>> for LLMChain<'a> {
             Some(memory) => {
                 prompt_messages.iter().for_each(|message| {
                     if message.get_type() != "system".to_string() {
+                        log::debug!("Adding to memory:{:?}", message.get_content());
                         memory.add_message(message.clone());
                     }
                 });
