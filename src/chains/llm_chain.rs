@@ -95,10 +95,14 @@ impl<'a> ChainTrait<String> for LLMChain<'a> {
             .to_chat_messages()
             .map_err(|e| ApiError::PromptError(e))?;
 
-        let ai_response = self
-            .llm
-            .generate(vec![memory_messages, prompt_messages.clone()])
-            .await?;
+        let mut messages: Vec<Vec<Box<dyn BaseMessage>>> = Vec::new();
+        if let Some(header) = self.header.as_ref() {
+            messages.push(header.clone());
+        }
+        messages.push(memory_messages);
+        messages.push(prompt_messages.clone());
+
+        let ai_response = self.llm.generate(messages).await?;
 
         match self.memory.as_mut() {
             Some(memory) => {
