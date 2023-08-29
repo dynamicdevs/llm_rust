@@ -43,7 +43,7 @@ impl<'a> LLMChain<'a> {
         self
     }
 
-    pub fn sandwich_prompts(mut self, sandwich_prompts: Vec<Box<dyn BaseMessage>>) -> Self {
+    pub fn with_sandwich_prompts(mut self, sandwich_prompts: Vec<Box<dyn BaseMessage>>) -> Self {
         self.sandwich_prompts = Some(sandwich_prompts);
         self
     }
