@@ -51,7 +51,7 @@ impl<'a> ChainTrait<HashMap<String, String>> for LLMChain<'a> {
 
         let ai_response = self
             .llm
-            .generate(vec![prompt_messages.clone(), memory_messages])
+            .generate(vec![memory_messages, prompt_messages.clone()])
             .await?;
 
         match self.memory.as_mut() {
