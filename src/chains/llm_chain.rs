@@ -16,6 +16,7 @@ use super::chain_trait::ChainTrait;
 
 pub struct LLMChain<'a> {
     prompt: Box<dyn BasePromptValue>,
+    header: Option<Vec<Box<dyn BaseMessage>>>,
     llm: Box<dyn ChatTrait>,
     pub memory: Option<&'a mut dyn BaseChatMessageHistory>,
 }
@@ -26,11 +27,17 @@ impl<'a> LLMChain<'a> {
             prompt,
             llm,
             memory: None,
+            header: None,
         }
     }
 
     pub fn with_memory(mut self, memory: &'a mut dyn BaseChatMessageHistory) -> Self {
         self.memory = Some(memory);
+        self
+    }
+
+    pub fn with_header(mut self, header: Vec<Box<dyn BaseMessage>>) -> Self {
+        self.header = Some(header);
         self
     }
 }
@@ -49,10 +56,14 @@ impl<'a> ChainTrait<HashMap<String, String>> for LLMChain<'a> {
             .to_chat_messages()
             .map_err(|e| ApiError::PromptError(e))?;
 
-        let ai_response = self
-            .llm
-            .generate(vec![memory_messages, prompt_messages.clone()])
-            .await?;
+        let mut messages: Vec<Vec<Box<dyn BaseMessage>>> = Vec::new();
+        if let Some(header) = self.header.as_ref() {
+            messages.push(header.clone());
+        }
+        messages.push(memory_messages);
+        messages.push(prompt_messages.clone());
+
+        let ai_response = self.llm.generate(messages).await?;
 
         match self.memory.as_mut() {
             Some(memory) => {
