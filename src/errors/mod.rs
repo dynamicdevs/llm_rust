@@ -21,3 +21,15 @@ impl std::fmt::Display for ApiError {
         }
     }
 }
+
+impl std::error::Error for ApiError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            ApiError::OpenaiError(err) => Some(err),
+            ApiError::AWSError(err) => Some(err),
+            ApiError::PromptError(err) => Some(err),
+        }
+    }
+}
+
+impl std::error::Error for PromptError {}

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, error::Error};
 
 use async_trait::async_trait;
 
@@ -83,9 +83,7 @@ impl<'a> LLMChain<'a> {
 
         if let Some(memory) = self.memory.as_mut() {
             for message in &prompt_messages {
-                log::debug!("message: {:?}", message.get_content());
                 if message.get_type() != "system".to_string() {
-                    log::debug!("Adding to memory: {:?}", message.get_content());
                     memory.add_message(message.clone());
                 }
             }
@@ -98,25 +96,31 @@ impl<'a> LLMChain<'a> {
 
 #[async_trait]
 impl<'a> ChainTrait<HashMap<String, String>> for LLMChain<'a> {
-    async fn run(&mut self, inputs: HashMap<String, String>) -> Result<String, ApiError> {
+    async fn run(&mut self, inputs: HashMap<String, String>) -> Result<String, Box<dyn Error>> {
         self.prompt.add_values(PromptData::HashMapData(inputs));
         let prompt_messages = self
             .prompt
             .to_chat_messages()
-            .map_err(ApiError::PromptError)?;
-        self.execute(prompt_messages).await
+            .map_err(Box::new(ApiError::PromptError))?;
+        Ok(self
+            .execute(prompt_messages)
+            .await
+            .map_err(|e| Box::new(e))?)
     }
 }
 
 #[async_trait]
 impl<'a> ChainTrait<String> for LLMChain<'a> {
-    async fn run(&mut self, inputs: String) -> Result<String, ApiError> {
+    async fn run(&mut self, inputs: String) -> Result<String, Box<dyn Error>> {
         self.prompt.add_values(PromptData::VecData(vec![inputs]));
         let prompt_messages = self
             .prompt
             .to_chat_messages()
-            .map_err(ApiError::PromptError)?;
-        self.execute(prompt_messages).await
+            .map_err(Box::new(ApiError::PromptError))?;
+        Ok(self
+            .execute(prompt_messages)
+            .await
+            .map_err(|e| Box::new(e))?)
     }
 }
 #[cfg(test)]
