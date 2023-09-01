@@ -15,7 +15,7 @@ use crate::{
 use super::chain_trait::ChainTrait;
 
 //Chat Chain
-pub struct LLMChain<'a> {
+pub struct LLMChatChain<'a> {
     prompt: Box<dyn BasePromptValue>,
     header_prompts: Option<Vec<Box<dyn BaseMessage>>>,
     sandwich_prompts: Option<Vec<Box<dyn BaseMessage>>>,
@@ -23,7 +23,7 @@ pub struct LLMChain<'a> {
     pub memory: Option<&'a mut dyn BaseChatMessageHistory>,
 }
 
-impl<'a> LLMChain<'a> {
+impl<'a> LLMChatChain<'a> {
     pub fn new(prompt: Box<dyn BasePromptValue>, llm: Box<dyn ChatTrait>) -> Self {
         Self {
             prompt,
@@ -96,7 +96,7 @@ impl<'a> LLMChain<'a> {
 }
 
 #[async_trait]
-impl<'a> ChainTrait<HashMap<String, String>> for LLMChain<'a> {
+impl<'a> ChainTrait<HashMap<String, String>> for LLMChatChain<'a> {
     async fn run(&mut self, inputs: HashMap<String, String>) -> Result<String, Box<dyn Error>> {
         self.prompt.add_values(PromptData::HashMapData(inputs));
         let prompt_messages = self
@@ -111,7 +111,7 @@ impl<'a> ChainTrait<HashMap<String, String>> for LLMChain<'a> {
 }
 
 #[async_trait]
-impl<'a> ChainTrait<String> for LLMChain<'a> {
+impl<'a> ChainTrait<String> for LLMChatChain<'a> {
     async fn run(&mut self, inputs: String) -> Result<String, Box<dyn Error>> {
         self.prompt.add_values(PromptData::VecData(vec![inputs]));
         let prompt_messages = self
@@ -127,7 +127,7 @@ impl<'a> ChainTrait<String> for LLMChain<'a> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        chains::llm_chain::LLMChain, chat_models::openai::chat_llm::ChatOpenAI,
+        chains::llm_chain::LLMChatChain, chat_models::openai::chat_llm::ChatOpenAI,
         prompt::prompt::PromptTemplate,
     };
 
@@ -137,7 +137,7 @@ mod tests {
     async fn test_llmchain_run_with_string() {
         let chat_openai = ChatOpenAI::default();
         let prompt_template = PromptTemplate::new("Hola mi nombre es {{name}}.");
-        let mut llm_chain = LLMChain::new(Box::new(prompt_template), Box::new(chat_openai));
+        let mut llm_chain = LLMChatChain::new(Box::new(prompt_template), Box::new(chat_openai));
         let result = llm_chain.run("luis".to_string()).await;
         assert!(result.is_ok());
     }
