@@ -14,6 +14,7 @@ use crate::{
 
 use super::chain_trait::ChainTrait;
 
+//Chat Chain
 pub struct LLMChain<'a> {
     prompt: Box<dyn BasePromptValue>,
     header_prompts: Option<Vec<Box<dyn BaseMessage>>>,
