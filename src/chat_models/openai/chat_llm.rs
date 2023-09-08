@@ -31,11 +31,11 @@ impl ChatModel {
 
 pub struct ChatOpenAI {
     pub model: ChatModel,
-    pub temperature: u32,
+    pub temperature: f32,
     pub openai_key: String,
 }
 impl ChatOpenAI {
-    pub fn new(model: ChatModel, temperature: u32, openai_key: String) -> Self {
+    pub fn new(model: ChatModel, temperature: f32, openai_key: String) -> Self {
         Self {
             model,
             temperature,
@@ -53,7 +53,7 @@ impl ChatOpenAI {
         self
     }
 
-    pub fn with_temperature(mut self, temperature: u32) -> Self {
+    pub fn with_temperature(mut self, temperature: f32) -> Self {
         self.temperature = temperature;
         self
     }
@@ -62,7 +62,7 @@ impl Default for ChatOpenAI {
     fn default() -> Self {
         Self {
             model: ChatModel::Gpt3_5Turbo,
-            temperature: 0,
+            temperature: 0.0,
             openai_key: env::var("OPENAI_API_KEY").unwrap_or(String::new()),
         }
     }
