@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use async_trait::async_trait;
 
 use crate::{
@@ -31,6 +33,18 @@ impl Default for LLMChain {
 impl ChainTrait<String> for LLMChain {
     async fn run(&mut self, inputs: String) -> Result<String, Box<dyn std::error::Error>> {
         self.prompt.add_values(PromptData::VecData(vec![inputs]));
+        let prompt = self.prompt.render()?;
+        Ok(self.llm.generate(prompt).await?)
+    }
+}
+
+#[async_trait]
+impl ChainTrait<HashMap<String, String>> for LLMChain {
+    async fn run(
+        &mut self,
+        inputs: HashMap<String, String>,
+    ) -> Result<String, Box<dyn std::error::Error>> {
+        self.prompt.add_values(PromptData::HashMapData(inputs));
         let prompt = self.prompt.render()?;
         Ok(self.llm.generate(prompt).await?)
     }
