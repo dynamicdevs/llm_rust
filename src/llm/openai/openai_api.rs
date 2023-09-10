@@ -30,14 +30,16 @@ pub struct LLMOpenAI {
     pub temperature: u32,
     pub openai_key: String,
     pub stop_sequence: Option<String>,
+    pub max_tokens: u32,
 }
 impl LLMOpenAI {
-    pub fn new(model: LLMModel, temperature: u32, openai_key: String) -> Self {
+    pub fn new(model: LLMModel, temperature: u32, openai_key: String, max_tokens: u32) -> Self {
         Self {
             model,
             temperature,
             openai_key,
             stop_sequence: None,
+            max_tokens,
         }
     }
 
@@ -60,6 +62,11 @@ impl LLMOpenAI {
         self.temperature = temperature;
         self
     }
+
+    pub fn with_max_tokens(mut self, max_tokens: u32) -> Self {
+        self.max_tokens = max_tokens;
+        self
+    }
 }
 
 impl Default for LLMOpenAI {
@@ -69,6 +76,7 @@ impl Default for LLMOpenAI {
             temperature: 0,
             openai_key: env::var("OPENAI_API_KEY").unwrap_or(String::new()),
             stop_sequence: Some(String::from("\n")),
+            max_tokens: 1334,
         }
     }
 }
