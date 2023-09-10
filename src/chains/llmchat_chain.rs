@@ -127,7 +127,7 @@ impl<'a> ChainTrait<String> for LLMChatChain<'a> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        chains::llm_chain::LLMChatChain, chat_models::openai::chat_llm::ChatOpenAI,
+        chains::llmchat_chain::LLMChatChain, chat_models::openai::chat_llm::ChatOpenAI,
         prompt::prompt::PromptTemplate,
     };
 
