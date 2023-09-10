@@ -13,12 +13,14 @@ use crate::{
 #[derive(Debug)]
 pub enum LLMModel {
     GptDavinci002,
+    TextDavinci003,
 }
 
 impl LLMModel {
     pub fn as_str(&self) -> &str {
         match *self {
             LLMModel::GptDavinci002 => "davinci-002",
+            LLMModel::TextDavinci003 => "text-davinci-003",
         }
     }
 }
@@ -63,7 +65,7 @@ impl LLMOpenAI {
 impl Default for LLMOpenAI {
     fn default() -> Self {
         Self {
-            model: LLMModel::GptDavinci002,
+            model: LLMModel::TextDavinci003,
             temperature: 0,
             openai_key: env::var("OPENAI_API_KEY").unwrap_or(String::new()),
             stop_sequence: Some(String::from("\n")),
