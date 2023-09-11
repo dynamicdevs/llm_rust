@@ -35,6 +35,7 @@ pub struct ChatOpenAI {
     pub model: ChatModel,
     pub temperature: f32,
     pub openai_key: String,
+    pub max_tokens: Option<u32>,
 }
 impl ChatOpenAI {
     pub fn new(model: ChatModel, temperature: f32, openai_key: String) -> Self {
@@ -42,6 +43,7 @@ impl ChatOpenAI {
             model,
             temperature,
             openai_key,
+            max_tokens: None,
         }
     }
 
@@ -59,6 +61,11 @@ impl ChatOpenAI {
         self.temperature = temperature;
         self
     }
+
+    pub fn with_max_tokens(mut self, max_tokens: u32) -> Self {
+        self.max_tokens = Some(max_tokens);
+        self
+    }
 }
 impl Default for ChatOpenAI {
     fn default() -> Self {
@@ -66,6 +73,7 @@ impl Default for ChatOpenAI {
             model: ChatModel::Gpt3_5Turbo,
             temperature: 0.0,
             openai_key: env::var("OPENAI_API_KEY").unwrap_or(String::new()),
+            max_tokens: None,
         }
     }
 }
@@ -85,6 +93,8 @@ impl ChatTrait for ChatOpenAI {
         let api_request = ApiRequest {
             model: String::from(self.model.as_str()),
             messages: flattened_messages,
+            temperature: self.temperature,
+            max_tokens: self.max_tokens,
         };
 
         let response = client
