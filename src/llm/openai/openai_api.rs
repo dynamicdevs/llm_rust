@@ -103,6 +103,7 @@ impl BaseLLM for LLMOpenAI {
             "prompt": prompt,
             "temperature": self.temperature,
             "stop": self.stop_sequence,
+            "max_tokens":self.max_tokens,
         });
 
         let response = match client
