@@ -6,6 +6,8 @@ use std::collections::HashMap;
 pub struct ApiRequest {
     pub model: String,
     pub messages: Vec<Message>,
+    pub max_tokens: Option<u32>,
+    pub temperature: f32,
 }
 
 #[derive(Deserialize)]
