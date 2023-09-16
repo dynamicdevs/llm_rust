@@ -21,8 +21,10 @@ pub struct HumanMessage {
     pub content: String,
 }
 impl HumanMessage {
-    pub fn new(content: String) -> Self {
-        Self { content }
+    pub fn new(content: &str) -> Self {
+        Self {
+            content: String::from(content),
+        }
     }
 }
 impl BaseMessage for HumanMessage {
@@ -43,8 +45,10 @@ pub struct SystemMessage {
     pub content: String,
 }
 impl SystemMessage {
-    pub fn new(content: String) -> Self {
-        Self { content }
+    pub fn new(content: &str) -> Self {
+        Self {
+            content: String::from(content),
+        }
     }
 }
 impl BaseMessage for SystemMessage {
@@ -66,8 +70,10 @@ pub struct AIMessage {
     pub content: String,
 }
 impl AIMessage {
-    pub fn new(content: String) -> Self {
-        Self { content }
+    pub fn new(content: &str) -> Self {
+        Self {
+            content: String::from(content),
+        }
     }
 }
 impl BaseMessage for AIMessage {

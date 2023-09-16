@@ -72,7 +72,7 @@ impl BasePromptValue for PromptTemplate {
     }
 
     fn to_chat_messages(&self) -> Result<Vec<Box<dyn BaseMessage>>, PromptError> {
-        Ok(vec![Box::new(HumanMessage::new(self.render()?))])
+        Ok(vec![Box::new(HumanMessage::new(&self.render()?))])
     }
 
     fn add_values(&mut self, data: PromptData) {
@@ -228,11 +228,9 @@ mod tests {
 
     #[test]
     fn test_render_from_vec_messages() {
-        let message1: Box<dyn BaseMessage> =
-            Box::new(HumanMessage::new("Hola {{name}}!".to_string()));
-        let message2: Box<dyn BaseMessage> = Box::new(HumanMessage::new(
-            "Tengo ganas de comer {{food}}.".to_string(),
-        ));
+        let message1: Box<dyn BaseMessage> = Box::new(HumanMessage::new("Hola {{name}}!"));
+        let message2: Box<dyn BaseMessage> =
+            Box::new(HumanMessage::new("Tengo ganas de comer {{food}}."));
 
         let mut templates = PromptTemplates::new(vec![message1, message2]);
         templates.add_values(PromptData::VecData(vec![
@@ -248,11 +246,9 @@ mod tests {
 
     #[test]
     fn test_render_from_hashmap_messages() {
-        let message1: Box<dyn BaseMessage> =
-            Box::new(SystemMessage::new("Hola {{name}}!".to_string()));
-        let message2: Box<dyn BaseMessage> = Box::new(HumanMessage::new(
-            "Tengo ganas de comer {{food}}.".to_string(),
-        ));
+        let message1: Box<dyn BaseMessage> = Box::new(SystemMessage::new("Hola {{name}}!"));
+        let message2: Box<dyn BaseMessage> =
+            Box::new(HumanMessage::new("Tengo ganas de comer {{food}}."));
 
         let mut data = HashMap::new();
         data.insert("food".to_string(), "pizza".to_string());
@@ -284,10 +280,8 @@ mod tests {
 
     #[test]
     fn test_render_prompt_templates_new_with_add_values() {
-        let message1: Box<dyn BaseMessage> =
-            Box::new(HumanMessage::new("Good {{time_of_day}}!".to_string()));
-        let message2: Box<dyn BaseMessage> =
-            Box::new(HumanMessage::new("I love eating {{meal}}.".to_string()));
+        let message1: Box<dyn BaseMessage> = Box::new(HumanMessage::new("Good {{time_of_day}}!"));
+        let message2: Box<dyn BaseMessage> = Box::new(HumanMessage::new("I love eating {{meal}}."));
 
         let mut templates = PromptTemplates::new(vec![message1, message2]);
         templates.add_values(PromptData::HashMapData({
@@ -319,10 +313,9 @@ mod tests {
 
     #[test]
     fn test_render_prompt_templates_new_with_add_values_vec() {
-        let message1: Box<dyn BaseMessage> =
-            Box::new(HumanMessage::new("{{greeting}} {{name}}!".to_string()));
+        let message1: Box<dyn BaseMessage> = Box::new(HumanMessage::new("{{greeting}} {{name}}!"));
         let message2: Box<dyn BaseMessage> =
-            Box::new(HumanMessage::new("You are {{designation}}.".to_string()));
+            Box::new(HumanMessage::new("You are {{designation}}."));
 
         let mut templates = PromptTemplates::new(vec![message1, message2]);
         templates.add_values(PromptData::VecData(vec![

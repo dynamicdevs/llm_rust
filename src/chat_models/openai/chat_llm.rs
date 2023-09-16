@@ -124,7 +124,7 @@ impl ChatTrait for ChatOpenAI {
                     .map_err(|e| ApiError::OpenaiError(e.clone()))?;
 
                 let ai_message = AIMessage::new(
-                    response_message
+                    &response_message
                         .message
                         .get("content")
                         .ok_or_else(|| OpenaiError::ServerError {
