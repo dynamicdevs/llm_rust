@@ -84,7 +84,7 @@ impl<'a> LLMChatChain<'a> {
 
         if let Some(memory) = self.memory.as_mut() {
             for message in &prompt_messages {
-                if message.get_type() != "system".to_string() {
+                if message.get_type() == String::from("user") {
                     memory.add_message(message.clone());
                 }
             }
