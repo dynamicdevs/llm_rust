@@ -3,6 +3,8 @@ use std::{
     io::{self, ErrorKind},
 };
 
+use serde::{Deserialize, Serialize};
+
 pub trait BaseMessage: Send + Sync {
     fn get_type(&self) -> String;
     fn get_content(&self) -> String;
@@ -14,7 +16,7 @@ impl Clone for Box<dyn BaseMessage> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct HumanMessage {
     pub content: String,
 }
@@ -36,7 +38,7 @@ impl BaseMessage for HumanMessage {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct SystemMessage {
     pub content: String,
 }
@@ -59,7 +61,7 @@ impl BaseMessage for SystemMessage {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct AIMessage {
     pub content: String,
 }
