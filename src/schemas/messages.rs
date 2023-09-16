@@ -16,6 +16,27 @@ impl Clone for Box<dyn BaseMessage> {
     }
 }
 
+impl Serialize for Box<dyn BaseMessage> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let map = message_to_map(self.clone());
+        map.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Box<dyn BaseMessage> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let map: HashMap<String, String> = HashMap::deserialize(deserializer)?;
+
+        message_from_map(map).map_err(serde::de::Error::custom)
+    }
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct HumanMessage {
     pub content: String,
