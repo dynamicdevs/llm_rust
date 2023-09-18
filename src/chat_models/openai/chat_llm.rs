@@ -113,7 +113,11 @@ impl ChatTrait for ChatOpenAI {
         let status = response.status();
         match response.status() {
             reqwest::StatusCode::OK => {
-                let api_response: ApiResponse = response.json().await.unwrap();
+                let api_response: ApiResponse = response.json().await.map_err(|_| {
+                    ApiError::OpenaiError(OpenaiError::new_generic_error(String::from(
+                        "Error deserializing response or unknow error",
+                    )))
+                })?;
                 let response_message = api_response
                     .choices
                     .get(0)
