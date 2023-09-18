@@ -118,6 +118,7 @@ impl ChatTrait for ChatOpenAI {
                         "Error deserializing response or unknow error",
                     )))
                 })?;
+                log::info!("Prompt token count: {:?}", api_response.usage);
                 let response_message = api_response
                     .choices
                     .get(0)

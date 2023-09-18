@@ -2,7 +2,7 @@ use super::message_type::Message;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct ApiRequest {
     pub model: String,
     pub messages: Vec<Message>,
@@ -10,7 +10,7 @@ pub struct ApiRequest {
     pub temperature: f32,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct ApiResponse {
     pub id: String,
     pub object: String,
@@ -19,14 +19,14 @@ pub struct ApiResponse {
     pub usage: ApiUsage,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct ApiChoice {
     pub index: u8,
     pub message: HashMap<String, String>,
     pub finish_reason: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct ApiUsage {
     prompt_tokens: u32,
     completion_tokens: u32,
