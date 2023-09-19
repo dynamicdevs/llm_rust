@@ -84,6 +84,7 @@ impl Embedder for OpenAiEmbedder {
 
         match res {
             Ok(response) => {
+                log::debug!("response:{:?}", &response);
                 let data: EmbeddingResponse = response.json().await.map_err(|e| {
                     log::error!("Could not parse response: {}", e);
                     ApiError::OpenaiError(OpenaiError::from_http_status(
@@ -121,6 +122,7 @@ impl Embedder for OpenAiEmbedder {
 
         match res {
             Ok(response) => {
+                log::debug!("response:{:?}", &response);
                 let data: EmbeddingResponse = response.json().await.map_err(|e| {
                     log::error!("Could not parse response: {}", e);
                     ApiError::OpenaiError(OpenaiError::from_http_status(
