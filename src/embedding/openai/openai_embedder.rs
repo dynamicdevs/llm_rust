@@ -36,7 +36,12 @@ impl Default for OpenAiEmbedder {
 impl Embedder for OpenAiEmbedder {
     async fn embed_documents(&self, documents: Vec<String>) -> Result<Vec<Vec<f64>>, ApiError> {
         let client = Client::new();
-        let url = Url::parse("https://api.openai.com/v1/embeddings").unwrap();
+        let url = Url::parse("https://api.openai.com/v1/embeddings").map_err(|_| {
+            ApiError::OpenaiError(OpenaiError::from_http_status(
+                500,
+                "Could not parse URL".to_string(),
+            ))
+        })?;
 
         let res = client
             .post(url)
@@ -50,7 +55,13 @@ impl Embedder for OpenAiEmbedder {
 
         match res {
             Ok(response) => {
-                let data: Value = response.json().await.unwrap();
+                let data: Value = response.json().await.map_err(|e| {
+                    log::error!("Could not parse response: {}", e);
+                    ApiError::OpenaiError(OpenaiError::from_http_status(
+                        500,
+                        "Could not parse response".to_string(),
+                    ))
+                })?;
                 let embeddings: Vec<Vec<f64>> = data["data"]
                     .as_array()
                     .unwrap()
@@ -75,7 +86,12 @@ impl Embedder for OpenAiEmbedder {
 
     async fn embed_query(&self, text: &str) -> Result<Vec<f64>, ApiError> {
         let client = Client::new();
-        let url = Url::parse("https://api.openai.com/v1/embeddings").unwrap();
+        let url = Url::parse("https://api.openai.com/v1/embeddings").map_err(|_| {
+            ApiError::OpenaiError(OpenaiError::from_http_status(
+                500,
+                "Could not parse URL".to_string(),
+            ))
+        })?;
 
         let res = client
             .post(url)
@@ -89,7 +105,13 @@ impl Embedder for OpenAiEmbedder {
 
         match res {
             Ok(response) => {
-                let data: Value = response.json().await.unwrap();
+                let data: Value = response.json().await.map_err(|e| {
+                    log::error!("Could not parse response: {}", e);
+                    ApiError::OpenaiError(OpenaiError::from_http_status(
+                        500,
+                        "Could not parse response".to_string(),
+                    ))
+                })?;
                 let embedding: Vec<f64> = data["data"][0]["embedding"]
                     .as_array()
                     .unwrap()
