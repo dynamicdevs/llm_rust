@@ -80,25 +80,29 @@ impl Embedder for OpenAiEmbedder {
                 "model": &self.model,
             }))
             .send()
-            .await;
-
-        match res {
-            Ok(response) => {
-                log::debug!("response:{:?}", &response);
-                let data: EmbeddingResponse = response.json().await.map_err(|e| {
-                    log::error!("Could not parse response: {}", e);
-                    ApiError::OpenaiError(OpenaiError::from_http_status(
-                        500,
-                        "Could not parse response".to_string(),
-                    ))
-                })?;
-                Ok(data.extract_all_embeddings())
-            }
-            Err(err) => Err(ApiError::OpenaiError(OpenaiError::from_http_status(
-                err.status().unwrap().as_u16(),
-                err.to_string(),
-            ))),
+            .await
+            .map_err(|e| {
+                log::error!("Could not send request: {}", e);
+                ApiError::OpenaiError(OpenaiError::from_http_status(
+                    500,
+                    "Could not send request".to_string(),
+                ))
+            })?;
+        if res.status() != 200 {
+            return Err(ApiError::OpenaiError(OpenaiError::from_http_status(
+                res.status().as_u16(),
+                res.text().await.unwrap_or("".to_string()),
+            )));
         }
+
+        let data: EmbeddingResponse = res.json().await.map_err(|e| {
+            log::error!("Could not parse response: {}", e);
+            ApiError::OpenaiError(OpenaiError::from_http_status(
+                500,
+                "Could not parse response".to_string(),
+            ))
+        })?;
+        Ok(data.extract_all_embeddings())
     }
 
     async fn embed_query(&self, text: &str) -> Result<Vec<f64>, ApiError> {
@@ -118,24 +122,28 @@ impl Embedder for OpenAiEmbedder {
                 "model": &self.model,
             }))
             .send()
-            .await;
+            .await
+            .map_err(|_| {
+                ApiError::OpenaiError(OpenaiError::from_http_status(
+                    500,
+                    "Could not send request".to_string(),
+                ))
+            })?;
 
-        match res {
-            Ok(response) => {
-                log::debug!("response:{:?}", &response);
-                let data: EmbeddingResponse = response.json().await.map_err(|e| {
-                    log::error!("Could not parse response: {}", e);
-                    ApiError::OpenaiError(OpenaiError::from_http_status(
-                        500,
-                        "Could not parse response".to_string(),
-                    ))
-                })?;
-                Ok(data.extract_embedding())
-            }
-            Err(err) => Err(ApiError::OpenaiError(OpenaiError::from_http_status(
-                err.status().unwrap().as_u16(),
-                err.to_string(),
-            ))),
+        if res.status() != 200 {
+            log::error!("Error from OPENAI: {}", &res.status());
+            return Err(ApiError::OpenaiError(OpenaiError::from_http_status(
+                res.status().as_u16(),
+                res.text().await.unwrap_or("".to_string()),
+            )));
         }
+        let data: EmbeddingResponse = res.json().await.map_err(|e| {
+            log::error!("Could not parse response: {}", e);
+            ApiError::OpenaiError(OpenaiError::from_http_status(
+                500,
+                "Could not parse response".to_string(),
+            ))
+        })?;
+        Ok(data.extract_embedding())
     }
 }
