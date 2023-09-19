@@ -2,13 +2,41 @@ use std::env;
 
 use async_trait::async_trait;
 use reqwest::{Client, Url};
-use serde_json::{json, Value};
+use serde::Deserialize;
+use serde_json::json;
 
 use crate::{
     embedding::embedder_trait::Embedder,
     errors::{openai_errors::OpenaiError, ApiError},
 };
+#[derive(Debug, Deserialize)]
+struct EmbeddingResponse {
+    object: String,
+    data: Vec<EmbeddingData>,
+    model: String,
+    usage: UsageData,
+}
+impl EmbeddingResponse {
+    fn extract_embedding(&self) -> Vec<f64> {
+        self.data[0].embedding.clone()
+    }
+    fn extract_all_embeddings(&self) -> Vec<Vec<f64>> {
+        self.data.iter().map(|d| d.embedding.clone()).collect()
+    }
+}
 
+#[derive(Debug, Deserialize)]
+struct EmbeddingData {
+    object: String,
+    embedding: Vec<f64>,
+    index: usize,
+}
+
+#[derive(Debug, Deserialize)]
+struct UsageData {
+    prompt_tokens: usize,
+    total_tokens: usize,
+}
 #[derive(Debug)]
 pub struct OpenAiEmbedder {
     pub model: String,
@@ -36,7 +64,8 @@ impl Default for OpenAiEmbedder {
 impl Embedder for OpenAiEmbedder {
     async fn embed_documents(&self, documents: Vec<String>) -> Result<Vec<Vec<f64>>, ApiError> {
         let client = Client::new();
-        let url = Url::parse("https://api.openai.com/v1/embeddings").map_err(|_| {
+        let url = Url::parse("https://api.openai.com/v1/embeddings").map_err(|e| {
+            log::error!("Could not parse URL: {}", e);
             ApiError::OpenaiError(OpenaiError::from_http_status(
                 500,
                 "Could not parse URL".to_string(),
@@ -45,7 +74,7 @@ impl Embedder for OpenAiEmbedder {
 
         let res = client
             .post(url)
-            .bearer_auth(self.openai_key.as_str())
+            .bearer_auth(&self.openai_key)
             .json(&json!({
                 "input": documents,
                 "model": &self.model,
@@ -55,27 +84,14 @@ impl Embedder for OpenAiEmbedder {
 
         match res {
             Ok(response) => {
-                let data: Value = response.json().await.map_err(|e| {
+                let data: EmbeddingResponse = response.json().await.map_err(|e| {
                     log::error!("Could not parse response: {}", e);
                     ApiError::OpenaiError(OpenaiError::from_http_status(
                         500,
                         "Could not parse response".to_string(),
                     ))
                 })?;
-                let embeddings: Vec<Vec<f64>> = data["data"]
-                    .as_array()
-                    .unwrap()
-                    .iter()
-                    .map(|val| {
-                        val["embedding"]
-                            .as_array()
-                            .unwrap()
-                            .iter()
-                            .map(|n| n.as_f64().unwrap())
-                            .collect()
-                    })
-                    .collect();
-                Ok(embeddings)
+                Ok(data.extract_all_embeddings())
             }
             Err(err) => Err(ApiError::OpenaiError(OpenaiError::from_http_status(
                 err.status().unwrap().as_u16(),
@@ -105,20 +121,14 @@ impl Embedder for OpenAiEmbedder {
 
         match res {
             Ok(response) => {
-                let data: Value = response.json().await.map_err(|e| {
+                let data: EmbeddingResponse = response.json().await.map_err(|e| {
                     log::error!("Could not parse response: {}", e);
                     ApiError::OpenaiError(OpenaiError::from_http_status(
                         500,
                         "Could not parse response".to_string(),
                     ))
                 })?;
-                let embedding: Vec<f64> = data["data"][0]["embedding"]
-                    .as_array()
-                    .unwrap()
-                    .iter()
-                    .map(|n| n.as_f64().unwrap())
-                    .collect();
-                Ok(embedding)
+                Ok(data.extract_embedding())
             }
             Err(err) => Err(ApiError::OpenaiError(OpenaiError::from_http_status(
                 err.status().unwrap().as_u16(),
