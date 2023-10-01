@@ -81,4 +81,5 @@ pub trait Agent {
 
 pub trait AgentOutputParser {
     fn parse(&self, text: &str) -> AgentEvent;
+    fn get_format_instructions(&self) -> &str;
 }
