@@ -95,11 +95,8 @@ impl<'a> LLMChatChain<'a> {
 #[async_trait]
 impl<'a> ChainTrait for LLMChatChain<'a> {
     async fn run(&mut self, inputs: ChainInput) -> Result<String, Box<dyn Error>> {
-        println!("AAAAAAAAAAAAAAAAAAA");
         let prompt_value = self.prompt.format_prompt(&inputs)?;
-        println!("AAAAAAAAAAAAAAAAAAA");
         let prompt_messages = prompt_value.to_chat_messages()?;
-        println!("prompt_messages: {:?}", prompt_messages[0].get_content());
 
         Ok(self
             .execute(prompt_messages)
@@ -133,7 +130,6 @@ mod tests {
 
         let mut llm_chain = LLMChatChain::new(prompt_template, Box::new(chat_openai));
         let result = llm_chain.run(ChainInput::Arg("luis".to_string())).await;
-        println!("{:?}", result);
         assert!(result.is_ok());
     }
 }
