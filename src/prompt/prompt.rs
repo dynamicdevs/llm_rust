@@ -1,332 +1,191 @@
+use crate::schemas::{messages::HumanMessage, prompt::PromptValue};
 use handlebars::Handlebars;
 use regex::Regex;
-use std::collections::HashMap;
-
-use crate::{
-    errors::PromptError,
-    schemas::{
-        messages::{AIMessage, BaseMessage, HumanMessage, SystemMessage},
-        prompt::{BasePromptValue, PromptData},
-    },
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::{
+    collections::{HashMap, HashSet},
+    error::Error,
 };
 
+use super::TemplateArgs;
+
+pub trait BasePromptTemplate {
+    fn format(&self, args: &dyn TemplateArgs) -> Result<String, Box<dyn Error>>;
+    fn format_prompt(
+        &self,
+        args: &dyn TemplateArgs,
+    ) -> Result<Box<dyn PromptValue>, Box<dyn Error>>;
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PromptTemplate {
     template: String,
-    data: Option<PromptData>,
+    pub input_variables: Vec<String>,
+    partial_variables: Option<HashMap<String, Value>>,
+}
+
+fn extract_handlebars_input_variables(template: &str) -> Vec<String> {
+    let re = Regex::new(r"\{\{([a-zA-Z_][a-zA-Z0-9_]*)\}\}").unwrap();
+    let mut input_variables_set = HashSet::new();
+
+    for cap in re.captures_iter(template) {
+        if let Some(matched) = cap.get(1) {
+            input_variables_set.insert(matched.as_str().to_string());
+        }
+    }
+
+    let mut input_variables: Vec<String> = input_variables_set.into_iter().collect();
+    input_variables.sort();
+    input_variables
 }
 
 impl PromptTemplate {
-    pub fn new(template: &str) -> Self {
-        PromptTemplate {
+    pub fn from_template(template: &str) -> Self {
+        let input_vars = extract_handlebars_input_variables(template);
+
+        Self {
             template: template.to_string(),
-            data: None,
+            input_variables: input_vars,
+            partial_variables: None,
         }
     }
 
-    pub fn new_from_vec(template: &str, data: Vec<String>) -> Self {
-        PromptTemplate {
-            template: template.to_string(),
-            data: Some(PromptData::VecData(data)),
+    pub fn with_partial_variables(mut self, partial_variables: HashMap<String, Value>) -> Self {
+        for key in partial_variables.keys() {
+            self.input_variables.retain(|var| var != key);
         }
+        self.partial_variables = Some(partial_variables);
+        self
     }
 
-    pub fn new_from_hashmap(template: &str, data: HashMap<String, String>) -> Self {
-        PromptTemplate {
-            template: template.to_string(),
-            data: Some(PromptData::HashMapData(data)),
-        }
-    }
-
-    pub fn render(&self) -> Result<String, PromptError> {
-        let re = Regex::new(r"\{\{([^\{\}]+)\}\}").unwrap();
-        let captures: Vec<String> = re
-            .captures_iter(&self.template)
-            .filter_map(|cap| cap.get(1).map(|m| m.as_str().trim().to_string()))
-            .collect();
-
-        let mut map = HashMap::new();
-        match &self.data {
-            Some(PromptData::VecData(data_vec)) => {
-                for (index, placeholder) in captures.iter().enumerate() {
-                    if let Some(value) = data_vec.get(index) {
-                        map.insert(placeholder.clone(), value.clone());
-                    }
-                }
-            }
-            Some(PromptData::HashMapData(data_map)) => {
-                map.extend(data_map.clone());
-            }
-            None => return Err(PromptError::DataNotProvided("No data".to_string())),
-        }
-
-        let handlebars = Handlebars::new();
-        handlebars
-            .render_template(&self.template, &map)
-            .map_err(|e| PromptError::RenderError(e.to_string()))
-    }
-}
-
-impl BasePromptValue for PromptTemplate {
-    fn to_string(&self) -> Result<String, PromptError> {
-        self.render()
-    }
-
-    fn to_chat_messages(&self) -> Result<Vec<Box<dyn BaseMessage>>, PromptError> {
-        Ok(vec![Box::new(HumanMessage::new(&self.render()?))])
-    }
-
-    fn add_values(&mut self, data: PromptData) {
-        self.data = Some(data);
-    }
-}
-
-pub struct PromptTemplates {
-    templates: Vec<Box<dyn BaseMessage>>,
-    data: Option<PromptData>,
-}
-
-impl PromptTemplates {
-    pub fn new(templates: Vec<Box<dyn BaseMessage>>) -> Self {
-        PromptTemplates {
-            templates,
-            data: None,
-        }
-    }
-
-    fn render(&self) -> Result<Vec<Box<dyn BaseMessage>>, PromptError> {
-        match &self.data {
-            Some(PromptData::VecData(data_vec)) => self.render_from_vec(data_vec.clone()),
-            Some(PromptData::HashMapData(data_hashmap)) => {
-                self.render_from_hashmap(data_hashmap.clone())
-            }
-            None => Err(PromptError::RenderError("No data provided.".to_string())),
-        }
-    }
-
-    fn render_from_vec(&self, data: Vec<String>) -> Result<Vec<Box<dyn BaseMessage>>, PromptError> {
-        let mut all_placeholders = Vec::new();
-        for template in &self.templates {
-            let re = Regex::new(r"\{\{([^\{\}]+)\}\}").unwrap();
-            let captures: Vec<String> = re
-                .captures_iter(&template.get_content())
-                .filter_map(|cap| cap.get(1).map(|m| m.as_str().trim().to_string()))
-                .collect();
-            all_placeholders.extend(captures);
-        }
-
-        let mut map = HashMap::new();
-        for (placeholder, value) in all_placeholders.iter().zip(data.iter()) {
-            map.insert(placeholder.clone(), value.clone());
-        }
-
-        self.templates
-            .iter()
-            .map(|template| {
-                let handlebars = Handlebars::new();
-                let rendered_content = handlebars
-                    .render_template(&template.get_content(), &map)
-                    .map_err(|e| PromptError::RenderError(e.to_string()))?;
-
-                match template.get_type().as_str() {
-                    "user" => Ok(Box::new(HumanMessage {
-                        content: rendered_content,
-                    }) as Box<dyn BaseMessage>),
-                    "system" => Ok(Box::new(SystemMessage {
-                        content: rendered_content,
-                    }) as Box<dyn BaseMessage>),
-                    "assistant" => Ok(Box::new(AIMessage {
-                        content: rendered_content,
-                    }) as Box<dyn BaseMessage>),
-                    _ => Err(PromptError::RenderError(
-                        "Unknown message type.".to_string(),
-                    )),
-                }
-            })
-            .collect()
-    }
-
-    fn render_from_hashmap(
+    pub fn merge_partial_and_user_variables(
         &self,
-        data: HashMap<String, String>,
-    ) -> Result<Vec<Box<dyn BaseMessage>>, PromptError> {
-        self.templates
-            .iter()
-            .map(|template| {
-                let handlebars = Handlebars::new();
-                let rendered_content = handlebars
-                    .render_template(&template.get_content(), &data)
-                    .map_err(|e| PromptError::RenderError(e.to_string()))?;
+        user_variables: &HashMap<String, Value>,
+    ) -> HashMap<String, Value> {
+        let mut merged = HashMap::new();
 
-                match template.get_type().as_str() {
-                    "user" => Ok(Box::new(HumanMessage {
-                        content: rendered_content,
-                    }) as Box<dyn BaseMessage>),
-                    "system" => Ok(Box::new(SystemMessage {
-                        content: rendered_content,
-                    }) as Box<dyn BaseMessage>),
-                    "assistant" => Ok(Box::new(AIMessage {
-                        content: rendered_content,
-                    }) as Box<dyn BaseMessage>),
-                    _ => Err(PromptError::RenderError(
-                        "Unknown message type.".to_string(),
-                    )),
-                }
-            })
-            .collect()
-    }
-}
-
-impl BasePromptValue for PromptTemplates {
-    fn to_string(&self) -> Result<String, PromptError> {
-        self.render()
-            .map(|messages| messages.iter().map(|m| m.get_content()).collect())
-    }
-
-    fn to_chat_messages(&self) -> Result<Vec<Box<dyn BaseMessage>>, PromptError> {
-        match &self.data {
-            Some(PromptData::VecData(data_vec)) => self.render_from_vec(data_vec.clone()),
-            Some(PromptData::HashMapData(data_hashmap)) => {
-                self.render_from_hashmap(data_hashmap.clone())
+        if let Some(ref partial) = self.partial_variables {
+            for (k, v) in partial {
+                merged.insert(k.clone(), v.clone());
             }
-            None => Err(PromptError::RenderError("No data provided.".to_string())),
         }
-    }
 
-    fn add_values(&mut self, data: PromptData) {
-        self.data = Some(data);
+        for (k, v) in user_variables {
+            merged.insert(k.clone(), v.clone());
+        }
+
+        merged
     }
 }
+
+impl BasePromptTemplate for PromptTemplate {
+    fn format(&self, args: &dyn TemplateArgs) -> Result<String, Box<dyn Error>> {
+        let merged_args = args.to_map(&self.input_variables)?;
+        for var in &self.input_variables {
+            if !merged_args.contains_key(var) {
+                return Err(Box::new(std::fmt::Error));
+            }
+        }
+        let merged = self.merge_partial_and_user_variables(&merged_args);
+        let handlebars = Handlebars::new();
+        let prompt = handlebars.render_template(&self.template, &merged)?;
+        Ok(prompt)
+    }
+
+    fn format_prompt(
+        &self,
+        args: &dyn TemplateArgs,
+    ) -> Result<Box<dyn PromptValue>, Box<dyn Error>> {
+        Ok(Box::new(StringPromptValue {
+            text: self.format(args)?,
+        }))
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StringPromptValue {
+    text: String,
+}
+
+impl PromptValue for StringPromptValue {
+    fn to_string(&self) -> Result<String, Box<dyn Error>> {
+        Ok(self.text.clone())
+    }
+
+    fn to_chat_messages(
+        &self,
+    ) -> Result<Vec<Box<dyn crate::schemas::messages::BaseMessage>>, Box<dyn Error>> {
+        Ok(vec![Box::new(HumanMessage::new(&self.text))])
+    }
+}
+
+pub struct StringPromptTemplate {}
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::schemas::messages::{HumanMessage, SystemMessage};
 
     #[test]
-    fn test_render_from_vec() {
-        let template = "Hello {{name}} and {{test}}!";
-        let vec_data = vec!["Alice".to_string(), "Bob".to_string()];
-        let prompt = PromptTemplate::new_from_vec(template, vec_data);
-        let result = prompt.render();
-        assert!(result.is_ok());
-        let rendered = result.unwrap();
-        assert_eq!(rendered, "Hello Alice and Bob!");
+    fn test_from_template() {
+        let template_str = "Hello, {{name}}!";
+        let template = PromptTemplate::from_template(template_str);
+
+        assert_eq!(template.template, template_str);
+        assert_eq!(template.input_variables, vec!["name"]);
+        assert_eq!(template.partial_variables, None);
     }
 
     #[test]
-    fn test_render_from_hashmap() {
-        let template = "Hello {{first}} and {{second}}!";
-        let mut map_data = HashMap::new();
-        map_data.insert("first".to_string(), "Charlie".to_string());
-        map_data.insert("second".to_string(), "David".to_string());
-        let prompt = PromptTemplate::new_from_hashmap(template, map_data);
-        let result = prompt.render();
-        assert!(result.is_ok());
-        let rendered = result.unwrap();
-        assert_eq!(rendered, "Hello Charlie and David!");
+    fn test_with_partial_variables() {
+        let template_str = "Hello, {{name}} from {{city}}!";
+        let mut partial_vars = HashMap::new();
+        partial_vars.insert("city".to_string(), Value::String("NY".to_string()));
+
+        let template =
+            PromptTemplate::from_template(template_str).with_partial_variables(partial_vars);
+
+        assert_eq!(template.input_variables, vec!["name"]);
     }
 
     #[test]
-    fn test_render_from_vec_messages() {
-        let message1: Box<dyn BaseMessage> = Box::new(HumanMessage::new("Hola {{name}}!"));
-        let message2: Box<dyn BaseMessage> =
-            Box::new(HumanMessage::new("Tengo ganas de comer {{food}}."));
+    fn test_format_with_partial_and_user_vars() {
+        let template_str = "Hello, {{name}} from {{city}}!";
+        let mut partial_vars = HashMap::new();
+        partial_vars.insert("city".to_string(), Value::String("NY".to_string()));
 
-        let mut templates = PromptTemplates::new(vec![message1, message2]);
-        templates.add_values(PromptData::VecData(vec![
-            "Luis".to_string(),
-            "pizza".to_string(),
-        ]));
+        let template =
+            PromptTemplate::from_template(template_str).with_partial_variables(partial_vars);
 
-        let results = templates.to_chat_messages().unwrap();
+        let mut user_vars = HashMap::new();
+        user_vars.insert("name".to_string(), Value::String("Alice".to_string()));
 
-        assert_eq!(results[0].get_content(), "Hola Luis!");
-        assert_eq!(results[1].get_content(), "Tengo ganas de comer pizza.");
+        let output = template.format(&user_vars).unwrap();
+
+        assert_eq!(output, "Hello, Alice from NY!");
     }
 
     #[test]
-    fn test_render_from_hashmap_messages() {
-        let message1: Box<dyn BaseMessage> = Box::new(SystemMessage::new("Hola {{name}}!"));
-        let message2: Box<dyn BaseMessage> =
-            Box::new(HumanMessage::new("Tengo ganas de comer {{food}}."));
+    fn test_format_with_unmatched_vars() {
+        let template_str = "Hello, {{name}}!";
+        let template = PromptTemplate::from_template(template_str);
 
-        let mut data = HashMap::new();
-        data.insert("food".to_string(), "pizza".to_string());
-        data.insert("name".to_string(), "Luis".to_string());
+        let user_vars = HashMap::new();
 
-        let mut templates = PromptTemplates::new(vec![message1, message2]);
-        templates.add_values(PromptData::HashMapData(data));
+        let result = template.format(&user_vars);
+        println!("{:?}", result);
 
-        let results = templates.to_chat_messages().unwrap();
-
-        assert_eq!(results[0].get_content(), "Hola Luis!");
-        assert_eq!(results[1].get_content(), "Tengo ganas de comer pizza.");
+        assert!(result.is_err());
     }
 
     #[test]
-    fn test_render_prompt_template_new_with_add_values() {
-        let template = "Hi {{greeting}}!";
-        let mut prompt = PromptTemplate::new(template);
-        prompt.add_values(PromptData::HashMapData({
-            let mut map = HashMap::new();
-            map.insert("greeting".to_string(), "there".to_string());
-            map
-        }));
-        let result = prompt.render();
-        assert!(result.is_ok());
-        let rendered = result.unwrap();
-        assert_eq!(rendered, "Hi there!");
-    }
+    fn test_format_with_string_template_args() {
+        let template_str = "Hello, {{name}}!";
+        let template = PromptTemplate::from_template(template_str);
+        let name = "Alice".to_string();
 
-    #[test]
-    fn test_render_prompt_templates_new_with_add_values() {
-        let message1: Box<dyn BaseMessage> = Box::new(HumanMessage::new("Good {{time_of_day}}!"));
-        let message2: Box<dyn BaseMessage> = Box::new(HumanMessage::new("I love eating {{meal}}."));
+        let output = template.format(&name).unwrap();
 
-        let mut templates = PromptTemplates::new(vec![message1, message2]);
-        templates.add_values(PromptData::HashMapData({
-            let mut map = HashMap::new();
-            map.insert("time_of_day".to_string(), "morning".to_string());
-            map.insert("meal".to_string(), "breakfast".to_string());
-            map
-        }));
-
-        let results = templates.to_chat_messages().unwrap();
-
-        assert_eq!(results[0].get_content(), "Good morning!");
-        assert_eq!(results[1].get_content(), "I love eating breakfast.");
-    }
-
-    #[test]
-    fn test_render_prompt_template_new_with_add_values_vec() {
-        let template = "Hello {{name}}, you are number {{number}}!";
-        let mut prompt = PromptTemplate::new(template);
-        prompt.add_values(PromptData::VecData(vec![
-            "John".to_string(),
-            "1".to_string(),
-        ]));
-        let result = prompt.render();
-        assert!(result.is_ok());
-        let rendered = result.unwrap();
-        assert_eq!(rendered, "Hello John, you are number 1!");
-    }
-
-    #[test]
-    fn test_render_prompt_templates_new_with_add_values_vec() {
-        let message1: Box<dyn BaseMessage> = Box::new(HumanMessage::new("{{greeting}} {{name}}!"));
-        let message2: Box<dyn BaseMessage> =
-            Box::new(HumanMessage::new("You are {{designation}}."));
-
-        let mut templates = PromptTemplates::new(vec![message1, message2]);
-        templates.add_values(PromptData::VecData(vec![
-            "Hello".to_string(),
-            "John".to_string(),
-            "the first".to_string(),
-        ]));
-
-        let results = templates.to_chat_messages().unwrap();
-
-        assert_eq!(results[0].get_content(), "Hello John!");
-        assert_eq!(results[1].get_content(), "You are the first.");
+        assert_eq!(output, "Hello, Alice!");
     }
 }

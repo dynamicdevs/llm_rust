@@ -1,3 +1,4 @@
+use serde_json::Value;
 use std::{
     collections::HashMap,
     io::{self, ErrorKind},
@@ -111,6 +112,33 @@ impl BaseMessage for AIMessage {
     }
 }
 
+#[derive(Clone, Serialize, Deserialize)]
+pub struct ChatMessage {
+    role: String,
+    content: String,
+}
+impl ChatMessage {
+    pub fn new(role: &str, content: &str) -> Self {
+        Self {
+            role: String::from(role),
+            content: String::from(content),
+        }
+    }
+}
+impl BaseMessage for ChatMessage {
+    fn get_type(&self) -> String {
+        self.role.clone()
+    }
+
+    fn get_content(&self) -> String {
+        self.content.clone()
+    }
+
+    fn clone_box(&self) -> Box<dyn BaseMessage> {
+        Box::new(self.clone())
+    }
+}
+
 pub fn message_from_map(
     message: HashMap<String, String>,
 ) -> Result<Box<dyn BaseMessage>, Box<dyn std::error::Error + Send>> {
@@ -170,4 +198,21 @@ pub fn message_to_map(message: Box<dyn BaseMessage>) -> HashMap<String, String> 
 
 pub fn messages_to_map(messages: Vec<Box<dyn BaseMessage>>) -> Vec<HashMap<String, String>> {
     messages.into_iter().map(message_to_map).collect()
+}
+
+pub fn is_base_message(value: &Value) -> bool {
+    if let Some(obj) = value.as_object() {
+        let mut message_map = HashMap::new();
+        for (k, v) in obj {
+            if let Some(string_val) = v.as_str() {
+                message_map.insert(k.clone(), string_val.to_string());
+            } else {
+                return false;
+            }
+        }
+
+        message_from_map(message_map).is_ok()
+    } else {
+        false
+    }
 }

@@ -1,22 +1,19 @@
-use std::{collections::HashMap, error::Error};
+use std::error::Error;
 
 use async_trait::async_trait;
 
 use crate::{
     chat_models::chat_model_trait::ChatTrait,
     errors::ApiError,
-    schemas::{
-        memory::BaseChatMessageHistory,
-        messages::BaseMessage,
-        prompt::{BasePromptValue, PromptData},
-    },
+    prompt::{BaseChatPromptTemplate, ChatPromptTemplate},
+    schemas::{memory::BaseChatMessageHistory, messages::BaseMessage},
 };
 
-use super::chain_trait::ChainTrait;
+use super::chain_trait::{ChainInput, ChainTrait};
 
 //Chat Chain
 pub struct LLMChatChain<'a> {
-    prompt: Box<dyn BasePromptValue>,
+    prompt: ChatPromptTemplate,
     header_prompts: Option<Vec<Box<dyn BaseMessage>>>,
     sandwich_prompts: Option<Vec<Box<dyn BaseMessage>>>,
     llm: Box<dyn ChatTrait>,
@@ -24,7 +21,7 @@ pub struct LLMChatChain<'a> {
 }
 
 impl<'a> LLMChatChain<'a> {
-    pub fn new(prompt: Box<dyn BasePromptValue>, llm: Box<dyn ChatTrait>) -> Self {
+    pub fn new(prompt: ChatPromptTemplate, llm: Box<dyn ChatTrait>) -> Self {
         Self {
             prompt,
             llm,
@@ -96,13 +93,14 @@ impl<'a> LLMChatChain<'a> {
 }
 
 #[async_trait]
-impl<'a> ChainTrait<HashMap<String, String>> for LLMChatChain<'a> {
-    async fn run(&mut self, inputs: HashMap<String, String>) -> Result<String, Box<dyn Error>> {
-        self.prompt.add_values(PromptData::HashMapData(inputs));
-        let prompt_messages = self
-            .prompt
-            .to_chat_messages()
-            .map_err(Box::new(ApiError::PromptError))?;
+impl<'a> ChainTrait for LLMChatChain<'a> {
+    async fn run(&mut self, inputs: ChainInput) -> Result<String, Box<dyn Error>> {
+        println!("AAAAAAAAAAAAAAAAAAA");
+        let prompt_value = self.prompt.format_prompt(&inputs)?;
+        println!("AAAAAAAAAAAAAAAAAAA");
+        let prompt_messages = prompt_value.to_chat_messages()?;
+        println!("prompt_messages: {:?}", prompt_messages[0].get_content());
+
         Ok(self
             .execute(prompt_messages)
             .await
@@ -110,25 +108,13 @@ impl<'a> ChainTrait<HashMap<String, String>> for LLMChatChain<'a> {
     }
 }
 
-#[async_trait]
-impl<'a> ChainTrait<String> for LLMChatChain<'a> {
-    async fn run(&mut self, inputs: String) -> Result<String, Box<dyn Error>> {
-        self.prompt.add_values(PromptData::VecData(vec![inputs]));
-        let prompt_messages = self
-            .prompt
-            .to_chat_messages()
-            .map_err(Box::new(ApiError::PromptError))?;
-        Ok(self
-            .execute(prompt_messages)
-            .await
-            .map_err(|e| Box::new(e))?)
-    }
-}
 #[cfg(test)]
 mod tests {
     use crate::{
-        chains::llmchat_chain::LLMChatChain, chat_models::openai::chat_llm::ChatOpenAI,
-        prompt::prompt::PromptTemplate,
+        chains::llmchat_chain::LLMChatChain,
+        chat_models::openai::chat_llm::ChatOpenAI,
+        prompt::{HumanMessagePromptTemplate, MessageLike, PromptTemplate},
+        schemas::messages::SystemMessage,
     };
 
     use super::*;
@@ -136,9 +122,18 @@ mod tests {
     #[tokio::test]
     async fn test_llmchain_run_with_string() {
         let chat_openai = ChatOpenAI::default();
-        let prompt_template = PromptTemplate::new("Hola mi nombre es {{name}}.");
-        let mut llm_chain = LLMChatChain::new(Box::new(prompt_template), Box::new(chat_openai));
-        let result = llm_chain.run("luis".to_string()).await;
+        let prompt_template = ChatPromptTemplate::from_messages(vec![
+            MessageLike::base_message(SystemMessage::new(
+                "eres un assistente, que siempre responde como pirata diciendo ARRRGGGG",
+            )),
+            MessageLike::base_string_prompt_template(HumanMessagePromptTemplate::new(
+                PromptTemplate::from_template("Mi nombre es {{name}}"),
+            )),
+        ]);
+
+        let mut llm_chain = LLMChatChain::new(prompt_template, Box::new(chat_openai));
+        let result = llm_chain.run(ChainInput::Arg("luis".to_string())).await;
+        println!("{:?}", result);
         assert!(result.is_ok());
     }
 }

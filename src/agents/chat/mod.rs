@@ -2,11 +2,7 @@ use std::error::Error;
 
 use crate::{
     chains::{chain_trait::ChainTrait, llmchat_chain::LLMChatChain},
-    prompt::prompt::{PromptTemplate, PromptTemplates},
-    schemas::{
-        messages::{BaseMessage, HumanMessage, SystemMessage},
-        prompt::BasePromptValue,
-    },
+    schemas::messages::{BaseMessage, HumanMessage, SystemMessage},
     tools::tool_trait::Tool,
 };
 use handlebars::Handlebars;
