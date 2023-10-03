@@ -11,22 +11,24 @@ use crate::schemas::{
 
 use super::{BasePromptTemplate, PromptTemplate, TemplateArgs};
 
-pub trait BaseMessagePromptTemplate: Send + Sync {
-    fn format_messages<T: TemplateArgs>(
-        &self,
-        args: &T,
-    ) -> Result<Vec<Box<dyn BaseMessage>>, Box<dyn Error>>;
-
-    fn input_variables(&self) -> Vec<String>;
-}
-
 pub struct MessagesPlaceholder {
     variable_name: String,
 }
+impl MessagesPlaceholder {
+    pub fn new(variable_name: &str) -> Self {
+        Self {
+            variable_name: variable_name.to_string(),
+        }
+    }
+}
 impl BaseMessagePromptTemplate for MessagesPlaceholder {
-    fn format_messages<T: TemplateArgs>(
+    fn format(&self, _args: &dyn TemplateArgs) -> Result<Box<dyn BaseMessage>, Box<dyn Error>> {
+        unimplemented!()
+    }
+
+    fn format_messages(
         &self,
-        args: &T,
+        args: &dyn TemplateArgs,
     ) -> Result<Vec<Box<dyn BaseMessage>>, Box<dyn Error>> {
         // Retrieve the variable from args
         let map = args.to_map(&self.input_variables())?;
@@ -69,7 +71,7 @@ impl BaseMessagePromptTemplate for MessagesPlaceholder {
     }
 }
 
-pub trait BaseStringMessagePromptTemplate: Send + Sync {
+pub trait BaseMessagePromptTemplate: Send + Sync {
     fn format(&self, args: &dyn TemplateArgs) -> Result<Box<dyn BaseMessage>, Box<dyn Error>>;
 
     fn format_messages(
@@ -94,7 +96,7 @@ impl ChatMessagePromptTemplate {
         }
     }
 }
-impl BaseStringMessagePromptTemplate for ChatMessagePromptTemplate {
+impl BaseMessagePromptTemplate for ChatMessagePromptTemplate {
     fn format(&self, args: &dyn TemplateArgs) -> Result<Box<dyn BaseMessage>, Box<dyn Error>> {
         let text = self.prompt.format(args)?;
         Ok(Box::new(ChatMessage::new(&self.role, &text)))
@@ -113,7 +115,7 @@ impl HumanMessagePromptTemplate {
         Self { prompt }
     }
 }
-impl BaseStringMessagePromptTemplate for HumanMessagePromptTemplate {
+impl BaseMessagePromptTemplate for HumanMessagePromptTemplate {
     fn format(&self, args: &dyn TemplateArgs) -> Result<Box<dyn BaseMessage>, Box<dyn Error>> {
         let text = self.prompt.format(args)?;
         Ok(Box::new(HumanMessage::new(&text)))
@@ -131,7 +133,7 @@ impl AIMessagePromptTemplate {
         Self { prompt }
     }
 }
-impl BaseStringMessagePromptTemplate for AIMessagePromptTemplate {
+impl BaseMessagePromptTemplate for AIMessagePromptTemplate {
     fn format(&self, args: &dyn TemplateArgs) -> Result<Box<dyn BaseMessage>, Box<dyn Error>> {
         let text = self.prompt.format(args)?;
         Ok(Box::new(AIMessage::new(&text)))
@@ -150,7 +152,7 @@ impl SystemMessagePromptTemplate {
         Self { prompt }
     }
 }
-impl BaseStringMessagePromptTemplate for SystemMessagePromptTemplate {
+impl BaseMessagePromptTemplate for SystemMessagePromptTemplate {
     fn format(&self, args: &dyn TemplateArgs) -> Result<Box<dyn BaseMessage>, Box<dyn Error>> {
         let text = self.prompt.format(args)?;
         Ok(Box::new(SystemMessage::new(&text)))
@@ -201,7 +203,7 @@ pub trait BaseChatPromptTemplate: Send + Sync {
 }
 
 pub enum MessageLike {
-    BaseStringMessagePromptTemplate(Box<dyn BaseStringMessagePromptTemplate>),
+    BaseMessagePromptTemplate(Box<dyn BaseMessagePromptTemplate>),
     BaseMessage(Box<dyn BaseMessage>),
     BaseChatPromptTemplate(Box<dyn BaseChatPromptTemplate>),
 }
@@ -211,10 +213,8 @@ impl MessageLike {
         MessageLike::BaseMessage(Box::new(msg))
     }
 
-    pub fn base_string_prompt_template<T: 'static + BaseStringMessagePromptTemplate>(
-        template: T,
-    ) -> Self {
-        MessageLike::BaseStringMessagePromptTemplate(Box::new(template))
+    pub fn base_prompt_template<T: 'static + BaseMessagePromptTemplate>(template: T) -> Self {
+        MessageLike::BaseMessagePromptTemplate(Box::new(template))
     }
 
     pub fn base_chat_prompt_template<T: 'static + BaseChatPromptTemplate>(template: T) -> Self {
@@ -233,16 +233,16 @@ impl ChatPromptTemplate {
         let prompt_template = PromptTemplate::from_template(template);
         let message = HumanMessagePromptTemplate::new(prompt_template);
 
-        ChatPromptTemplate::from_messages(vec![MessageLike::BaseStringMessagePromptTemplate(
-            Box::new(message),
-        )])
+        ChatPromptTemplate::from_messages(vec![MessageLike::BaseMessagePromptTemplate(Box::new(
+            message,
+        ))])
     }
 
     pub fn from_messages(messages: Vec<MessageLike>) -> Self {
         let mut input_variables = Vec::new();
         for message in &messages {
             match message {
-                MessageLike::BaseStringMessagePromptTemplate(message) => {
+                MessageLike::BaseMessagePromptTemplate(message) => {
                     input_variables.extend(message.input_variables());
                 }
                 MessageLike::BaseChatPromptTemplate(message) => {
@@ -301,7 +301,7 @@ impl BaseChatPromptTemplate for ChatPromptTemplate {
         let mut result: Vec<Box<dyn BaseMessage>> = Vec::new();
         for message in &self.messages {
             match message {
-                MessageLike::BaseStringMessagePromptTemplate(message) => {
+                MessageLike::BaseMessagePromptTemplate(message) => {
                     let rel_params: HashMap<String, Value> = merged
                         .iter()
                         .filter(|&(key, _)| message.input_variables().contains(key))
@@ -337,7 +337,7 @@ mod tests {
     #[test]
     fn test_chatprompt_from_messages() {
         let chat_prompt =
-            ChatPromptTemplate::from_messages(vec![MessageLike::BaseStringMessagePromptTemplate(
+            ChatPromptTemplate::from_messages(vec![MessageLike::BaseMessagePromptTemplate(
                 Box::new(HumanMessagePromptTemplate::new(
                     PromptTemplate::from_template("Hello, {{name}}!"),
                 )),
@@ -356,7 +356,7 @@ mod tests {
         };
 
         let chat_prompt =
-            ChatPromptTemplate::from_messages(vec![MessageLike::BaseStringMessagePromptTemplate(
+            ChatPromptTemplate::from_messages(vec![MessageLike::BaseMessagePromptTemplate(
                 Box::new(HumanMessagePromptTemplate::new(
                     PromptTemplate::from_template("Hello, {{name}} from {{city}}!"),
                 )),
@@ -382,18 +382,12 @@ mod tests {
         };
 
         let chat_prompt =
-            ChatPromptTemplate::from_messages(vec![MessageLike::BaseStringMessagePromptTemplate(
+            ChatPromptTemplate::from_messages(vec![MessageLike::BaseMessagePromptTemplate(
                 Box::new(HumanMessagePromptTemplate::new(
                     PromptTemplate::from_template("Hello, {{name}} from {{city}}!"),
                 )),
             )])
             .with_partial_variables(partial_vars);
-
-        let user_vars = {
-            let mut map = HashMap::new();
-            map.insert("name".to_string(), json!("Alice"));
-            map
-        };
 
         let messages = chat_prompt.format_messages(&String::from("Alice")).unwrap();
         for message in &messages {
@@ -406,7 +400,7 @@ mod tests {
     #[test]
     fn test_chatprompt_format_messages_with_unmatched_vars() {
         let chat_prompt =
-            ChatPromptTemplate::from_messages(vec![MessageLike::BaseStringMessagePromptTemplate(
+            ChatPromptTemplate::from_messages(vec![MessageLike::BaseMessagePromptTemplate(
                 Box::new(HumanMessagePromptTemplate::new(
                     PromptTemplate::from_template("Hello, {{name}}!"),
                 )),
@@ -416,5 +410,37 @@ mod tests {
         let result = chat_prompt.format_messages(&user_vars);
 
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_all() {
+        let prompt = ChatPromptTemplate::from_messages(vec![
+            MessageLike::base_message(SystemMessage::new("hola este es el system message")),
+            MessageLike::base_prompt_template(MessagesPlaceholder::new("chat_history")),
+            MessageLike::base_prompt_template(HumanMessagePromptTemplate::new(
+                PromptTemplate::from_template("el final prompt hecho por {{name}}"),
+            )),
+            MessageLike::base_prompt_template(MessagesPlaceholder::new("sratch_pad")),
+        ]);
+        let user_vars = {
+            let mut map = HashMap::new();
+            let mut chat_history = Vec::new();
+            let msg = HumanMessage::new("Hello, world!");
+            chat_history.push(Box::new(msg) as Box<dyn BaseMessage>);
+            map.insert("name".to_string(), json!("Alice"));
+            map.insert("chat_history".to_string(), json!(chat_history));
+            let sratch: Vec<Box<dyn BaseMessage>> = vec![
+                // Box::new(HumanMessage::new("test1")) as Box<dyn BaseMessage>,
+                // Box::new(HumanMessage::new("test2")) as Box<dyn BaseMessage>,
+            ];
+            map.insert("sratch_pad".to_string(), json!(sratch));
+            map
+        };
+
+        let messages = prompt.format_messages(&user_vars).unwrap();
+        for message in &messages {
+            println!("{:?}", message.get_content())
+        }
+        assert!(prompt.format_messages(&user_vars).is_ok())
     }
 }

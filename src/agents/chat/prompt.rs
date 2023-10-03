@@ -16,20 +16,20 @@ Use this if you want the human to use a tool.
 Markdown code snippet formatted in the following schema:
 
 ```json
-{{{{
-    "action": string, \\ The action to take. Must be one of {tool_names}
+{
+    "action": string, \\ The action to take. Must be one of {{tool_names}}
     "action_input": string \\ The input to the action
-}}}}
+}
 ```
 
 **Option #2:**
 Use this if you want to respond directly to the human. Markdown code snippet formatted in the following schema:
 
 ```json
-{{{{
+{
     "action": "Final Answer",
     "action_input": string \\ You should put what you want to return to use here
-}}}}
+}
 ```"#;
 
 pub const SUFFIX: &str = r#"TOOLS
@@ -41,10 +41,18 @@ Assistant can ask the user to use tools to look up information that may be helpf
 {{format_instructions}}
 
 USER'S INPUT
---------------------
 Here is the user's input (remember to respond with a markdown code snippet of a json blob with a single action, and NOTHING else):
 
-{{{{input}}}}"#;
+{{input}}"#;
+
+pub const TEMPLATE_TOOL_RESPONSE: &str = r#"TOOL RESPONSE: 
+---------------------
+{{observation}}
+
+USER'S INPUT
+--------------------
+
+Okay, so what is the response to my last comment? If using information obtained from the tools you must mention it explicitly without mentioning the tool names - I have forgotten all TOOL RESPONSES! Remember to respond with a markdown code snippet of a json blob with a single action, and NOTHING else."#;
 
 // //historial
 // //pregunta nueva->cual es el presindente de peru y cuantos anos tiene

@@ -2,10 +2,10 @@ use async_trait::async_trait;
 
 use crate::{
     llm::{base::BaseLLM, openai::LLMOpenAI},
-    prompt::{BasePromptTemplate, PromptTemplate},
+    prompt::{BasePromptTemplate, PromptTemplate, TemplateArgs},
 };
 
-use super::chain_trait::{ChainInput, ChainTrait};
+use super::chain_trait::ChainTrait;
 
 pub struct LLMChain {
     llm: Box<dyn BaseLLM>,
@@ -28,8 +28,8 @@ impl Default for LLMChain {
 
 #[async_trait]
 impl ChainTrait for LLMChain {
-    async fn run(&mut self, inputs: ChainInput) -> Result<String, Box<dyn std::error::Error>> {
-        let prompt = self.prompt.format(&inputs)?;
+    async fn run(&self, inputs: &dyn TemplateArgs) -> Result<String, Box<dyn std::error::Error>> {
+        let prompt = self.prompt.format(inputs)?;
         Ok(self.llm.generate(prompt).await?)
     }
 }
