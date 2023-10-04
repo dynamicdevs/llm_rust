@@ -21,6 +21,7 @@ use self::prompt::{FORMAT_INSTRUCTIONS, PREFIX, SUFFIX, TEMPLATE_TOOL_RESPONSE};
 use super::agent::{Agent, AgentOutputParser};
 
 pub mod output_parser;
+pub use output_parser::ConvoOutputParser;
 mod prompt;
 
 pub struct ConversationalAgent {
