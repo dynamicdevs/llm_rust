@@ -99,7 +99,7 @@ impl ConversationalAgent {
         Ok(thoughts)
     }
 
-    fn from_llm_and_tools(
+    pub fn from_llm_and_tools(
         llm: Box<dyn crate::chat_models::chat_model_trait::ChatTrait>,
         tools: Vec<Box<dyn Tool>>,
         output_parser: Box<dyn AgentOutputParser>,
