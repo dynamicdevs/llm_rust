@@ -30,6 +30,7 @@ impl AgentExecutor {
     fn get_name_to_tools(&self) -> HashMap<String, Box<dyn Tool>> {
         let mut name_to_tool = HashMap::new();
         for tool in self.tools.iter() {
+            log::debug!("Loading Tool:{}", tool.name());
             name_to_tool.insert(tool.name(), tool.clone_box());
         }
         name_to_tool
@@ -66,12 +67,14 @@ impl ChainTrait for AgentExecutor {
             let agent_event = self.agent.plan(&steps, input).await?;
             match agent_event {
                 AgentEvent::Action(action) => {
+                    log::debug!("Action: {:?}", action);
                     let tool = name_to_tools.get(&action.tool).ok_or("Tool not found")?; //No se si
                                                                                          //lanzar error o poner este mensage evaluar
                     let observarion = tool.call(&action.tool_input)?;
                     steps.push((action, observarion));
                 }
                 AgentEvent::Finish(finish) => {
+                    log::debug!("Finis: {:?}", finish);
                     if let Some(memory_arc) = &self.memory {
                         let mut memory_guard = memory_arc
                             .write()
