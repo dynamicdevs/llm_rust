@@ -77,11 +77,13 @@ impl ChainTrait for AgentExecutor {
                 AgentEvent::Finish(finish) => {
                     log::debug!("Finis: {:?}", finish);
                     if let Some(memory_arc) = &self.memory {
+                        log::debug!("Adding to memory");
                         let mut memory_guard = memory_arc
                             .write()
                             .map_err(|_| "Failed to acquire write lock")?;
                         let human_str = input.clone_as_map();
                         let human_str = human_str.get("input").ok_or("Human not found")?;
+                        log::debug!("Human: {:?}", human_str);
                         memory_guard
                             .add_message(Box::new(HumanMessage::new(&human_str.to_string())));
                         memory_guard.add_message(Box::new(AIMessage::new(&finish.return_values)));
