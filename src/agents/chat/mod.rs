@@ -128,6 +128,7 @@ impl Agent for ConversationalAgent {
         intermediate_steps: &Vec<(AgentAction, String)>,
         inputs: &dyn TemplateArgs,
     ) -> Result<AgentEvent, Box<dyn Error>> {
+        log::debug!("Planning");
         let scratchpad = self.construct_scratchpad(intermediate_steps.clone())?;
         let mut inputs = inputs.clone_as_map();
         inputs.insert("agent_scratchpad".to_string(), json!(scratchpad)); // Assuming scratchpad is a Stringhapad

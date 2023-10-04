@@ -62,6 +62,7 @@ impl ChainTrait for AgentExecutor {
 
         let mut steps: Vec<(AgentAction, String)> = Vec::new();
 
+        log::debug!("Starting agent");
         let mut max_iterations = self.max_iterations;
         loop {
             let agent_event = self.agent.plan(&steps, input).await?;
