@@ -1,3 +1,4 @@
+use serde_json::Value;
 use std::{
     collections::HashMap,
     error::Error,
@@ -12,7 +13,7 @@ use crate::{
     schemas::{
         agent::{AgentAction, AgentEvent},
         memory::BaseChatMessageHistory,
-        messages::{AIMessage, HumanMessage},
+        messages::{AIMessage, BaseMessage, HumanMessage},
     },
     tools::tool_trait::Tool,
 };
@@ -64,8 +65,28 @@ impl ChainTrait for AgentExecutor {
 
         log::debug!("Starting agent");
         let mut max_iterations = self.max_iterations;
+        //if memory exist i want to get the messages of the mory an append to input chat_history
+        //with the vec of those messages
+        ////add code here
+
+        let mut input_map = input.clone_as_map();
+
+        if let Some(memory_arc) = &self.memory {
+            let memory_guard = memory_arc
+                .read()
+                .map_err(|_| "Failed to acquire read lock")?;
+            let message_history_str = memory_guard.to_string();
+            input_map.insert(
+                "chat_history".to_string(),
+                Value::String(message_history_str),
+            );
+        } else {
+            let empty_history = vec![] as Vec<Box<dyn BaseMessage>>;
+            input_map.insert("chat_history".to_string(), serde_json::json!(empty_history));
+        }
+
         loop {
-            let agent_event = self.agent.plan(&steps, input).await?;
+            let agent_event = self.agent.plan(&steps, &input_map).await?;
             match agent_event {
                 AgentEvent::Action(action) => {
                     log::debug!("Action: {:?}", action.tool_input);

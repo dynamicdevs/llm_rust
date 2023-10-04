@@ -72,6 +72,7 @@ impl ConversationalAgent {
 
         let prompt = ChatPromptTemplate::from_messages(vec![
             MessageLike::base_message(SystemMessage::new(system_message)),
+            MessageLike::base_prompt_template(MessagesPlaceholder::new("chat_history")),
             MessageLike::base_prompt_template(HumanMessagePromptTemplate::new(
                 PromptTemplate::from_template(&final_prompt),
             )),
