@@ -137,7 +137,7 @@ impl Agent for ConversationalAgent {
 
         log::debug!("Running chain");
         let output = self.chain.run(&inputs).await?;
-        log::debug!("Parsing output");
+        log::debug!("Parsing output:{}", output);
         let parsed_output = self.output_parser.parse(&output)?;
         Ok(parsed_output)
     }
