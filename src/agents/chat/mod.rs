@@ -172,7 +172,23 @@ mod tests {
         }
 
         async fn call(&self, _input: &str) -> Result<String, Box<dyn Error>> {
-            Ok("Luis Fernando is the president of Peru.".to_string())
+            Ok("Luis Fernando is the president of Peru. tiene 30 anos".to_string())
+        }
+    }
+    #[derive(Debug, Clone)]
+    pub struct CalcTool;
+    #[async_trait]
+    impl Tool for CalcTool {
+        fn name(&self) -> String {
+            "Calculator".to_string()
+        }
+
+        fn description(&self) -> String {
+            "Use this tool if you want to calculate ages".to_string()
+        }
+
+        async fn call(&self, _input: &str) -> Result<String, Box<dyn Error>> {
+            Ok("50".to_string())
         }
     }
 
@@ -180,17 +196,19 @@ mod tests {
     async fn test_agent_run_with_string() {
         let agent = ConversationalAgent::from_llm_and_tools(
             Box::new(crate::chat_models::openai::chat_llm::ChatOpenAI::default()),
-            vec![Box::new(MockPeruPresidentTool)],
+            vec![Box::new(MockPeruPresidentTool), Box::new(CalcTool)],
             Box::new(ConvoOutputParser::new()),
         );
 
         let exec = AgentExecutor::from_agent_and_tools(
             Box::new(agent.unwrap()),
-            vec![Box::new(MockPeruPresidentTool)],
+            vec![Box::new(MockPeruPresidentTool), Box::new(CalcTool)],
         );
 
         let result = exec
-            .run(&String::from("hola"))
+            .run(&String::from(
+                "Quien es el presidente de peru y cual es su edad multiplicada por 3",
+            ))
             .await
             .map_err(|e| println!("{}", e));
         println!("{}", result.unwrap());

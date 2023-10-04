@@ -4,6 +4,7 @@ use crate::{
     agents::agent::AgentOutputParser,
     schemas::agent::{AgentAction, AgentEvent, AgentFinish},
 };
+use regex::Regex;
 use serde_json::Value;
 
 use super::prompt::FORMAT_INSTRUCTIONS;
@@ -17,7 +18,17 @@ impl ConvoOutputParser {
 
 impl AgentOutputParser for ConvoOutputParser {
     fn parse(&self, text: &str) -> Result<AgentEvent, Box<dyn Error>> {
-        let parsed_json: Value = serde_json::from_str(text)?;
+        let re = Regex::new(r"\{(?:[^{}]|(?R))*\}")?;
+        let json_match = re.find(text);
+        let parsed_json: Value = match json_match {
+            Some(json_str) => serde_json::from_str(json_str.as_str())?,
+            None => {
+                return Err(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("No JSON found in text: `{}`", text),
+                )))
+            }
+        };
 
         if let (Some(action), Some(action_input)) = (
             parsed_json.get("action").and_then(|a| a.as_str()),
