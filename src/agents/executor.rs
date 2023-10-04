@@ -75,10 +75,10 @@ impl ChainTrait for AgentExecutor {
             let memory_guard = memory_arc
                 .read()
                 .map_err(|_| "Failed to acquire read lock")?;
-            let message_history_str = memory_guard.to_string();
+            let message_history = memory_guard;
             input_map.insert(
                 "chat_history".to_string(),
-                Value::String(message_history_str),
+                serde_json::json!(message_history.messages()),
             );
         } else {
             let empty_history = vec![] as Vec<Box<dyn BaseMessage>>;
