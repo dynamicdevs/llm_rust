@@ -148,6 +148,8 @@ impl Agent for ConversationalAgent {
 mod tests {
     use std::error::Error;
 
+    use async_trait::async_trait;
+
     use crate::{
         agents::{
             chat::{output_parser::ConvoOutputParser, ConversationalAgent},
@@ -159,6 +161,7 @@ mod tests {
 
     #[derive(Debug, Clone)]
     pub struct MockPeruPresidentTool;
+    #[async_trait]
     impl Tool for MockPeruPresidentTool {
         fn name(&self) -> String {
             "Get the current president".to_string()
@@ -168,7 +171,7 @@ mod tests {
             "A wrapper around Google Search. Useful for when you need to answer questions about current events. Input should be a search query.".to_string()
         }
 
-        fn call(&self, _input: &str) -> Result<String, Box<dyn Error>> {
+        async fn call(&self, _input: &str) -> Result<String, Box<dyn Error>> {
             Ok("Luis Fernando is the president of Peru.".to_string())
         }
     }

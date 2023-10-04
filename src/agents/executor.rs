@@ -71,7 +71,7 @@ impl ChainTrait for AgentExecutor {
                     log::debug!("Action: {:?}", action.tool_input);
                     let tool = name_to_tools.get(&action.tool).ok_or("Tool not found")?; //No se si
                                                                                          //lanzar error o poner este mensage evaluar
-                    let observarion = tool.call(&action.tool_input)?;
+                    let observarion = tool.call(&action.tool_input).await?;
                     steps.push((action, observarion));
                 }
                 AgentEvent::Finish(finish) => {
