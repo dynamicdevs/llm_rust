@@ -85,9 +85,11 @@ impl ConversationalAgent {
         &self,
         intermediate_steps: Vec<(AgentAction, String)>,
     ) -> Result<Vec<Box<dyn BaseMessage>>, Box<dyn Error>> {
+        log::debug!("Building scratchpad");
         let mut thoughts: Vec<Box<dyn BaseMessage>> = Vec::new();
 
         for (action, observation) in intermediate_steps.into_iter() {
+            log::debug!("Action: {:?}:{}", action, observation);
             thoughts.push(Box::new(AIMessage::new(&action.log)) as Box<dyn BaseMessage>);
             let handlebars = Handlebars::new();
             let tool_response = handlebars.render_template(
@@ -133,7 +135,9 @@ impl Agent for ConversationalAgent {
         let mut inputs = inputs.clone_as_map();
         inputs.insert("agent_scratchpad".to_string(), json!(scratchpad)); // Assuming scratchpad is a Stringhapad
 
+        log::debug!("Running chain");
         let output = self.chain.run(&inputs).await?;
+        log::debug!("Parsing output");
         let parsed_output = self.output_parser.parse(&output)?;
         Ok(parsed_output)
     }
