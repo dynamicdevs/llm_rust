@@ -8,7 +8,7 @@ use crate::{
 };
 
 #[async_trait]
-pub trait Agent {
+pub trait Agent: Send + Sync {
     async fn plan(
         &self,
         intermediate_steps: &Vec<(AgentAction, String)>,

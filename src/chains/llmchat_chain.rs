@@ -88,17 +88,15 @@ impl LLMChatChain {
         let ai_response = self.llm.generate(all_messages).await?;
 
         if let Some(memory_arc) = &self.memory {
-            {
-                let mut memory_guard = memory_arc
-                    .write()
-                    .map_err(|_| "Failed to acquire write lock")?;
-                for message in &prompt_messages {
-                    if message.get_type() == String::from("user") {
-                        memory_guard.add_message(message.clone());
-                    }
+            let mut memory_guard = memory_arc
+                .write()
+                .map_err(|_| "Failed to acquire write lock")?;
+            for message in &prompt_messages {
+                if message.get_type() == String::from("user") {
+                    memory_guard.add_message(message.clone());
                 }
-                memory_guard.add_message(Box::new(ai_response.clone()));
-            } // The lock is automatically dropped here.
+            }
+            memory_guard.add_message(Box::new(ai_response.clone()));
         }
 
         Ok(ai_response.get_content())
