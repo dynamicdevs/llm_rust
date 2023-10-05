@@ -123,6 +123,11 @@ impl ConversationalAgent {
             template_tool_response: TEMPLATE_TOOL_RESPONSE.to_string(),
         })
     }
+
+    pub fn with_prefix(mut self, prefix: &str) -> Self {
+        self.system_message = String::from(prefix);
+        self
+    }
 }
 #[async_trait]
 impl Agent for ConversationalAgent {
