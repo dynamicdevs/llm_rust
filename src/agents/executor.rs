@@ -90,22 +90,26 @@ impl ChainTrait for AgentExecutor {
                     steps.push((action, observarion));
                 }
                 AgentEvent::Finish(finish) => {
-                    log::debug!("Finish: {:?}", finish);
+                    log::debug!("AgentEvent::Finish branch entered");
+
                     if let Some(memory_arc) = &self.memory {
-                        log::debug!("Adding to memory");
+                        log::debug!("Attempting to add to memory");
                         let mut memory_guard = memory_arc
                             .write()
                             .map_err(|_| "Failed to acquire write lock")?;
+                        log::debug!("Successfully acquired write lock");
+
                         let inputs = input.clone_as_map();
-                        let human_str = inputs
-                            .get("input")
-                            .ok_or("Human not found")?
-                            .as_str()
-                            .ok_or_else(|| "Human not found")?;
-                        log::debug!("Human: {}", human_str.to_string());
-                        memory_guard.add_message(Box::new(HumanMessage::new(human_str)));
+                        let human_str = inputs.get("input").ok_or("Human not found")?;
+                        log::debug!("Adding Human message: {}", human_str.to_string());
+                        memory_guard
+                            .add_message(Box::new(HumanMessage::new(&human_str.to_string())));
+                        log::debug!("Successfully added Human message to memory");
+
                         memory_guard.add_message(Box::new(AIMessage::new(&finish.return_values)));
+                        log::debug!("Successfully added AI message to memory");
                     }
+
                     return Ok(finish.return_values);
                 }
             }
