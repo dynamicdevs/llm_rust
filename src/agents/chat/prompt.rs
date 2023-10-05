@@ -15,22 +15,23 @@ When responding to me, please output a response in one of two formats:
 Use this if you want the human to use a tool.
 Markdown code snippet formatted in the following schema:
 
-```json
+&#x60;&#x60;&#x60;json
 {
-    "action": string, \\ The action to take. Must be one of {{{tool_names}}}
-    "action_input": string \\ The input to the action
+    "action": string, \\ The action to take. Must be one of {{tool_names}}
+    "action_input": string \\ The input to the actionk
 }
-```
+&#x60;&#x60;&#x60;
 
 **Option #2:**
 Use this if you want to respond directly to the human. Markdown code snippet formatted in the following schema:
 
-```json
+
+&#x60;&#x60;&#x60;json
 {
     "action": "Final Answer",
     "action_input": string \\ You should put what you want to return to use here
 }
-```"#;
+&#x60;&#x60;&#x60;"#;
 
 pub const SUFFIX: &str = r#"TOOLS
 ------
