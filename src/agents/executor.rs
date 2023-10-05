@@ -70,6 +70,10 @@ impl ChainTrait for AgentExecutor {
                 .read()
                 .map_err(|_| "Failed to acquire read lock")?;
             let message_history = memory_guard;
+
+            for message in message_history.messages().iter() {
+                log::debug!("AAAAAAAAAAAAABBBBBBBBBBBBBBB{}", message.get_content());
+            }
             input_map.insert(
                 "chat_history".to_string(),
                 serde_json::json!(message_history.messages()),
