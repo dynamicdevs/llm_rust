@@ -69,12 +69,14 @@ impl ConversationalAgent {
                     "input":"{{input}}"
             }),
         )?;
+        let prompt = html_escape::decode_html_entities(&final_prompt).to_string();
+        log::debug!("Prompt:{}", prompt);
 
         let prompt = ChatPromptTemplate::from_messages(vec![
             MessageLike::base_message(SystemMessage::new(system_message)),
             MessageLike::base_prompt_template(MessagesPlaceholder::new("chat_history")),
             MessageLike::base_prompt_template(HumanMessagePromptTemplate::new(
-                PromptTemplate::from_template(&final_prompt),
+                PromptTemplate::from_template(&prompt),
             )),
             MessageLike::base_prompt_template(MessagesPlaceholder::new("agent_scratchpad")),
         ]);
