@@ -71,8 +71,9 @@ impl ChainTrait for AgentExecutor {
                 .map_err(|_| "Failed to acquire read lock")?;
             let message_history = memory_guard;
 
+            log::debug!("Messaage History");
             for message in message_history.messages().iter() {
-                log::debug!("AAAAAAAAAAAAABBBBBBBBBBBBBBB{}", message.get_content());
+                log::debug!("{}", message.get_content());
             }
             input_map.insert(
                 "chat_history".to_string(),
