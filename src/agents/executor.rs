@@ -1,4 +1,3 @@
-use serde_json::Value;
 use std::{
     collections::HashMap,
     error::Error,
@@ -23,23 +22,21 @@ use super::agent::Agent;
 pub struct AgentExecutor {
     agent: Box<dyn Agent>,
     max_iterations: Option<i32>,
-    tools: Vec<Box<dyn Tool>>,
     pub memory: Option<Arc<RwLock<dyn BaseChatMessageHistory>>>,
 }
 
 impl AgentExecutor {
-    fn get_name_to_tools(&self) -> HashMap<String, Box<dyn Tool>> {
+    fn get_name_to_tools(&self) -> HashMap<String, Arc<dyn Tool>> {
         let mut name_to_tool = HashMap::new();
-        for tool in self.tools.iter() {
+        for tool in self.agent.get_tools().iter() {
             log::debug!("Loading Tool:{}", tool.name());
-            name_to_tool.insert(tool.name(), tool.clone_box());
+            name_to_tool.insert(tool.name(), tool.clone());
         }
         name_to_tool
     }
 
-    pub fn from_agent_and_tools(agent: Box<dyn Agent>, tools: Vec<Box<dyn Tool>>) -> Self {
+    pub fn from_agent(agent: Box<dyn Agent>) -> Self {
         Self {
-            tools,
             agent,
             max_iterations: Some(10),
             memory: None,
@@ -65,9 +62,6 @@ impl ChainTrait for AgentExecutor {
 
         log::debug!("Starting agent");
         let mut max_iterations = self.max_iterations;
-        //if memory exist i want to get the messages of the mory an append to input chat_history
-        //with the vec of those messages
-        ////add code here
 
         let mut input_map = input.clone_as_map();
 
@@ -96,7 +90,7 @@ impl ChainTrait for AgentExecutor {
                     steps.push((action, observarion));
                 }
                 AgentEvent::Finish(finish) => {
-                    log::debug!("Finis: {:?}", finish);
+                    log::debug!("Finish: {:?}", finish);
                     if let Some(memory_arc) = &self.memory {
                         log::debug!("Adding to memory");
                         let mut memory_guard = memory_arc
@@ -104,7 +98,7 @@ impl ChainTrait for AgentExecutor {
                             .map_err(|_| "Failed to acquire write lock")?;
                         let human_str = input.clone_as_map();
                         let human_str = human_str.get("input").ok_or("Human not found")?;
-                        log::debug!("Human: {:?}", human_str);
+                        log::debug!("Human: {}", human_str.to_string());
                         memory_guard
                             .add_message(Box::new(HumanMessage::new(&human_str.to_string())));
                         memory_guard.add_message(Box::new(AIMessage::new(&finish.return_values)));

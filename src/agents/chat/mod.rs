@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::{error::Error, sync::Arc};
 
 use crate::{
     chains::{chain_trait::ChainTrait, llmchat_chain::LLMChatChain},
@@ -25,7 +25,7 @@ pub use output_parser::ConvoOutputParser;
 mod prompt;
 
 pub struct ConversationalAgent {
-    tools: Vec<Box<dyn Tool>>,
+    tools: Vec<Arc<dyn Tool>>,
     chain: Box<dyn ChainTrait>,
     system_message: String,
     human_message: String,
@@ -35,7 +35,7 @@ pub struct ConversationalAgent {
 
 impl ConversationalAgent {
     fn create_prompt(
-        tools: &Vec<Box<dyn Tool>>,
+        tools: &Vec<Arc<dyn Tool>>,
         system_message: &str,
         human_message: &str,
         format_instruction: &str,
@@ -84,7 +84,7 @@ impl ConversationalAgent {
 
     fn construct_scratchpad(
         &self,
-        intermediate_steps: Vec<(AgentAction, String)>,
+        intermediate_steps: &Vec<(AgentAction, String)>,
     ) -> Result<Vec<Box<dyn BaseMessage>>, Box<dyn Error>> {
         log::debug!("Building scratchpad");
         let mut thoughts: Vec<Box<dyn BaseMessage>> = Vec::new();
@@ -105,7 +105,7 @@ impl ConversationalAgent {
 
     pub fn from_llm_and_tools(
         llm: Box<dyn crate::chat_models::chat_model_trait::ChatTrait>,
-        tools: Vec<Box<dyn Tool>>,
+        tools: Vec<Arc<dyn Tool>>,
         output_parser: Box<dyn AgentOutputParser>,
     ) -> Result<Self, Box<dyn std::error::Error>>
     where
@@ -132,7 +132,7 @@ impl Agent for ConversationalAgent {
         inputs: &dyn TemplateArgs,
     ) -> Result<AgentEvent, Box<dyn Error>> {
         log::debug!("Planning");
-        let scratchpad = self.construct_scratchpad(intermediate_steps.clone())?;
+        let scratchpad = self.construct_scratchpad(&intermediate_steps)?;
         let mut inputs = inputs.clone_as_map();
         inputs.insert("agent_scratchpad".to_string(), json!(scratchpad)); // Assuming scratchpad is a Stringhapad
 
@@ -143,11 +143,15 @@ impl Agent for ConversationalAgent {
         log::debug!("Parsed output");
         Ok(parsed_output)
     }
+
+    fn get_tools(&self) -> Vec<Arc<dyn Tool>> {
+        self.tools.clone()
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::error::Error;
+    use std::{error::Error, sync::Arc};
 
     use async_trait::async_trait;
 
@@ -197,14 +201,11 @@ mod tests {
     async fn test_agent_run_with_string() {
         let agent = ConversationalAgent::from_llm_and_tools(
             Box::new(crate::chat_models::openai::chat_llm::ChatOpenAI::default()),
-            vec![Box::new(MockPeruPresidentTool), Box::new(CalcTool)],
+            vec![Arc::new(MockPeruPresidentTool), Arc::new(CalcTool)],
             Box::new(ConvoOutputParser::new()),
         );
 
-        let exec = AgentExecutor::from_agent_and_tools(
-            Box::new(agent.unwrap()),
-            vec![Box::new(MockPeruPresidentTool), Box::new(CalcTool)],
-        );
+        let exec = AgentExecutor::from_agent(Box::new(agent.unwrap()));
 
         let result = exec
             .run(&String::from(
