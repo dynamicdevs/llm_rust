@@ -99,6 +99,10 @@ impl ChainTrait for AgentExecutor {
                             .map_err(|_| "Failed to acquire write lock")?;
                         log::debug!("Successfully acquired write lock");
 
+                        log::debug!(
+                            "AgentExecutor::run's memory address: {:?}",
+                            memory_arc as *const _
+                        );
                         let inputs = input.clone_as_map();
                         let human_str = inputs.get("input").ok_or("Human not found")?;
                         log::debug!("Adding Human message: {}", human_str.to_string());
