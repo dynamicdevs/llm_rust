@@ -108,7 +108,12 @@ impl ChainTrait for AgentExecutor {
                             memory_arc as *const _
                         );
                         let inputs = input.clone_as_map();
-                        let human_str = inputs.get("input").ok_or("Human not found")?;
+                        let human_str = inputs
+                            .get("input")
+                            .ok_or("Human not found")?
+                            .as_str()
+                            .ok_or("Human not found")?
+                            .to_string();
                         log::debug!("Adding Human message: {}", human_str.to_string());
                         memory_guard
                             .add_message(Box::new(HumanMessage::new(&human_str.to_string())));
