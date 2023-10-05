@@ -15,23 +15,31 @@ When responding to me, please output a response in one of two formats:
 Use this if you want the human to use a tool.
 Markdown code snippet formatted in the following schema:
 
+{{{{raw}}}}
 &#x60;&#x60;&#x60;json
+{{{{/raw}}}}
 {
     "action": string, \\ The action to take. Must be one of {{tool_names}}
     "action_input": string \\ The input to the actionk
 }
+{{{{raw}}}}
 &#x60;&#x60;&#x60;
+{{{{/raw}}}}
 
 **Option #2:**
 Use this if you want to respond directly to the human. Markdown code snippet formatted in the following schema:
 
 
+{{{{raw}}}}
 &#x60;&#x60;&#x60;json
+{{{{/raw}}}}
 {
     "action": "Final Answer",
     "action_input": string \\ You should put what you want to return to use here
 }
-&#x60;&#x60;&#x60;"#;
+{{{{raw}}}}
+&#x60;&#x60;&#x60;
+{{{{/raw}}}}"#;
 
 pub const SUFFIX: &str = r#"TOOLS
 ------
