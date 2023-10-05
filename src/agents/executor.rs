@@ -97,10 +97,13 @@ impl ChainTrait for AgentExecutor {
                             .write()
                             .map_err(|_| "Failed to acquire write lock")?;
                         let inputs = input.clone_as_map();
-                        let human_str = inputs.get("input").ok_or("Human not found")?;
+                        let human_str = inputs
+                            .get("input")
+                            .ok_or("Human not found")?
+                            .as_str()
+                            .ok_or_else(|| "Human not found")?;
                         log::debug!("Human: {}", human_str.to_string());
-                        memory_guard
-                            .add_message(Box::new(HumanMessage::new(&human_str.to_string())));
+                        memory_guard.add_message(Box::new(HumanMessage::new(human_str)));
                         memory_guard.add_message(Box::new(AIMessage::new(&finish.return_values)));
                     }
                     return Ok(finish.return_values);
