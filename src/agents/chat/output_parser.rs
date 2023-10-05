@@ -18,6 +18,7 @@ impl ConvoOutputParser {
 
 impl AgentOutputParser for ConvoOutputParser {
     fn parse(&self, text: &str) -> Result<AgentEvent, Box<dyn Error>> {
+        log::debug!("Parsing to Agent Action: {}", text);
         let re = Regex::new(r"\{(?:[^{}]|(?R))*\}")?;
         let json_match = re.find(text);
         let parsed_json: Value = match json_match {
