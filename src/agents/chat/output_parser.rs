@@ -18,15 +18,21 @@ impl ConvoOutputParser {
 
 impl AgentOutputParser for ConvoOutputParser {
     fn parse(&self, text: &str) -> Result<AgentEvent, Box<dyn Error>> {
-        log::debug!("Parsing to Agent Action: {}", text);
+        // Sanitize the input to replace control characters with spaces
+        let sanitized_text = text
+            .chars()
+            .map(|c| if c.is_control() { ' ' } else { c })
+            .collect::<String>();
+
+        log::debug!("Parsing to Agent Action: {}", sanitized_text);
         let re = Regex::new(r"\{(?:[^{}]|(?R))*\}")?;
-        let json_match = re.find(text);
+        let json_match = re.find(&sanitized_text);
         let parsed_json: Value = match json_match {
             Some(json_str) => serde_json::from_str(json_str.as_str())?,
             None => {
                 return Err(Box::new(std::io::Error::new(
                     std::io::ErrorKind::Other,
-                    format!("No JSON found in text: `{}`", text),
+                    format!("No JSON found in text: `{}`", sanitized_text),
                 )))
             }
         };
@@ -43,13 +49,13 @@ impl AgentOutputParser for ConvoOutputParser {
                 Ok(AgentEvent::Action(AgentAction {
                     tool: action.to_string(),
                     tool_input: action_input.to_string(),
-                    log: text.to_string(),
+                    log: sanitized_text,
                 }))
             }
         } else {
             Err(Box::new(std::io::Error::new(
                 std::io::ErrorKind::Other,
-                format!("Could not parse LLM output: `{}`", text),
+                format!("Could not parse LLM output: `{}`", sanitized_text),
             )))
         }
     }
