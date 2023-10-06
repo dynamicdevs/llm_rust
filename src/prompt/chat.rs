@@ -429,10 +429,7 @@ mod tests {
             chat_history.push(Box::new(msg) as Box<dyn BaseMessage>);
             map.insert("name".to_string(), json!("Alice"));
             map.insert("chat_history".to_string(), json!(chat_history));
-            let sratch: Vec<Box<dyn BaseMessage>> = vec![
-                // Box::new(HumanMessage::new("test1")) as Box<dyn BaseMessage>,
-                // Box::new(HumanMessage::new("test2")) as Box<dyn BaseMessage>,
-            ];
+            let sratch: Vec<Box<dyn BaseMessage>> = vec![];
             map.insert("sratch_pad".to_string(), json!(sratch));
             map
         };
