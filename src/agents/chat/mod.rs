@@ -20,6 +20,8 @@ use self::prompt::{FORMAT_INSTRUCTIONS, PREFIX, SUFFIX, TEMPLATE_TOOL_RESPONSE};
 
 use super::agent::{Agent, AgentOutputParser};
 
+pub mod builder;
+pub use builder::ConversationalAgentBuilder;
 pub mod output_parser;
 pub use output_parser::ConvoOutputParser;
 mod prompt;
@@ -109,10 +111,7 @@ impl ConversationalAgent {
         llm: Box<dyn crate::chat_models::chat_model_trait::ChatTrait>,
         tools: Vec<Arc<dyn Tool>>,
         output_parser: Box<dyn AgentOutputParser>,
-    ) -> Result<Self, Box<dyn std::error::Error>>
-    where
-        Self: Sized,
-    {
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         let prompt =
             ConversationalAgent::create_prompt(&tools, &PREFIX, &SUFFIX, &FORMAT_INSTRUCTIONS)?;
         let chain = Box::new(LLMChatChain::new(prompt, llm));
@@ -124,11 +123,6 @@ impl ConversationalAgent {
             output_parser,
             template_tool_response: TEMPLATE_TOOL_RESPONSE.to_string(),
         })
-    }
-
-    pub fn with_prefix(mut self, prefix: &str) -> Self {
-        self.system_message = String::from(prefix);
-        self
     }
 }
 #[async_trait]
