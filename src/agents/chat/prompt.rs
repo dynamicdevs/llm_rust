@@ -28,7 +28,7 @@ Use this if you want to respond directly to the human. Markdown code snippet for
 ```json
 {
     "action": "Final Answer",
-    "action_input": string \\ You should put what you want to return to use here ,you should ALWAYS use Markdown syntax to make his answers more rideable. Bold for Emphasis names,important information.Lists for organization. Tables for structuring data and comparitions.
+    "action_input": string \\ You should put what you want to return to use here ,you should ALWAYS use Markdown. Bold for Emphasis names,important information.Lists for organization. Tables for structuring data and comparitions.
 }
 ```"#;
 
