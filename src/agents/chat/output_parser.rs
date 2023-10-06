@@ -15,23 +15,12 @@ impl ConvoOutputParser {
         Self {}
     }
 }
-fn escape_control_chars(text: &str) -> String {
-    let mut escaped = String::new();
-    for ch in text.chars() {
-        if ch.is_control() {
-            escaped.push_str(&format!("\\u{:04x}", ch as u32));
-        } else {
-            escaped.push(ch);
-        }
-    }
-    escaped
-}
+
 impl AgentOutputParser for ConvoOutputParser {
     fn parse(&self, text: &str) -> Result<AgentEvent, Box<dyn Error>> {
         log::debug!("Parsing to Agent Action: {}", text);
-        let preprocessed_text = escape_control_chars(text);
         let re = Regex::new(r"\{(?:[^{}]|(?R))*\}")?;
-        let json_match = re.find(&preprocessed_text);
+        let json_match = re.find(text);
         let parsed_json: Value = match json_match {
             Some(json_str) => serde_json::from_str(json_str.as_str())?,
             None => {
