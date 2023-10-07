@@ -24,11 +24,12 @@ Markdown code snippet formatted in the following schema:
 
 **Option #2:**
 Use this if you want to respond directly to the human. Markdown code snippet formatted in the following schema:
+In the final action_input you should use Bold for Emphasis names,important information. Lists for organization. Tables for structuring data and when need to compare products.
 
 ```json
 {
     "action": "Final Answer",
-    "action_input": string \\ You should put what you want to return to use here
+    "action_input": string \\ You should put what you want to return to use here.
 }
 ```"#;
 
