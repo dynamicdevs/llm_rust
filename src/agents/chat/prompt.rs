@@ -30,6 +30,15 @@ Use this if you want to respond directly to the human. Markdown code snippet for
     "action": "Final Answer",
     "action_input": string \\ You should put what you want to return to use here.
 }
+
+In the final answer you should always use Markdown format
+- Bold for Emphasis names,important information
+- Lists for organization
+- Tables for structuring data and when comparing products is needed.
+
+Try to use tables always
+
+
 ```"#;
 
 pub const SUFFIX: &str = r#"TOOLS
@@ -53,16 +62,3 @@ USER'S INPUT
 --------------------
 
 Okay, so what is the response to my last comment? If using information obtained from the tools you must mention it explicitly without mentioning the tool names - I have forgotten all TOOL RESPONSES! Remember to respond with a markdown code snippet of a json blob with a single action, and NOTHING else."#;
-
-// //historial
-// //pregunta nueva->cual es el presindente de peru y cuantos anos tiene
-// //entra al agente
-// //---------------
-// //historia=[basia]
-// //prompt + tools ->google
-// //pregunta nueve->cual es el presindente de peru y cuantos anos tiene
-// //me devuelta que usar -> google presindete de peru
-// //observation:El presidente de peru es xxx
-// //lugo todo esto se va a ir al siguientre prompt
-// //que seria algo como Question: cual es el presindente de peru y cuantos anos tiene
-// ////observacion:20//though:
