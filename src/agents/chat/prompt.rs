@@ -28,7 +28,7 @@ Use this if you want to respond directly to the human. Markdown code snippet for
 ```json
 {
     "action": "Final Answer",
-    "action_input": string \\ You should put what you want to return to use here. You should always use Markdown tables and format.
+    "action_input": string \\ You should put what you want to return to use here. You should use Markdown tables when comparing products.
 }
 
 ```"#;
