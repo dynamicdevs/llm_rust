@@ -31,13 +31,7 @@ Use this if you want to respond directly to the human. Markdown code snippet for
     "action_input": string \\ You should put what you want to return to use here.
 }
 
-In the final answer you should always use Markdown format
-- Bold for Emphasis names,important information
-- Lists for organization
-- Tables for structuring data and when comparing products is needed.
-
-Try to use tables always
-
+In the final answer you should always use Markdown tables and format.
 
 ```"#;
 
