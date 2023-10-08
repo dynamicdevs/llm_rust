@@ -30,10 +30,11 @@ impl AgentOutputParser for ConvoOutputParser {
         let parsed_json: Value = match json_match {
             Some(json_str) => serde_json::from_str(json_str.as_str())?,
             None => {
-                return Err(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("No JSON found in text: `{}`", sanitized_text),
-                )))
+                //If the model dont produce a json it will return it as final answer
+                log::debug!("No JSON found in text: {}", sanitized_text);
+                return Ok(AgentEvent::Finish(AgentFinish {
+                    return_values: sanitized_text,
+                }));
             }
         };
 
