@@ -8,7 +8,11 @@ use async_trait::async_trait;
 use crate::{
     chat_models::chat_model_trait::ChatTrait,
     prompt::{BaseChatPromptTemplate, ChatPromptTemplate, TemplateArgs},
-    schemas::{memory::BaseChatMessageHistory, messages::BaseMessage},
+    schemas::{
+        llm::LlmResponse,
+        memory::BaseChatMessageHistory,
+        messages::{AIMessage, BaseMessage},
+    },
 };
 
 use super::chain_trait::ChainTrait;
@@ -85,21 +89,27 @@ impl LLMChatChain {
     ) -> Result<String, Box<dyn Error>> {
         let all_messages = self.order_messages(prompt_messages.clone())?;
 
-        let ai_response = self.llm.generate(all_messages).await?;
-
-        if let Some(memory_arc) = &self.memory {
-            let mut memory_guard = memory_arc
-                .write()
-                .map_err(|_| "Failed to acquire write lock")?;
-            for message in &prompt_messages {
-                if message.get_type() == String::from("user") {
-                    memory_guard.add_message(message.clone());
+        let response = self.llm.generate(all_messages).await?;
+        match response {
+            LlmResponse::Text(response) => {
+                if let Some(memory_arc) = &self.memory {
+                    let mut memory_guard = memory_arc
+                        .write()
+                        .map_err(|_| "Failed to acquire write lock")?;
+                    for message in &prompt_messages {
+                        if message.get_type() == String::from("user") {
+                            memory_guard.add_message(message.clone());
+                        }
+                    }
+                    memory_guard.add_message(Box::new(AIMessage::new(&response)));
                 }
-            }
-            memory_guard.add_message(Box::new(ai_response.clone()));
-        }
 
-        Ok(ai_response.get_content())
+                return Ok(response);
+            }
+            LlmResponse::Stream(_e) => {
+                unimplemented!()
+            }
+        }
     }
 }
 
@@ -140,7 +150,7 @@ mod tests {
         }
     }
 
-    // #[tokio::test]
+    #[tokio::test]
     async fn test_llmchain_run_with_string() {
         let chat_openai = ChatOpenAI::default();
         let prompt_template = ChatPromptTemplate::from_messages(vec![
@@ -148,7 +158,7 @@ mod tests {
                 "eres un assistente, que siempre responde como pirata diciendo ARRRGGGG",
             )),
             MessageLike::base_prompt_template(HumanMessagePromptTemplate::new(
-                PromptTemplate::from_template("Mi nombre es {{name}}"),
+                PromptTemplate::from_template("Mi nombre es {{input}}"),
             )),
         ]);
 

@@ -2,6 +2,7 @@ use std::env;
 
 use async_trait::async_trait;
 use reqwest::Client;
+use reqwest_eventsource::EventSource;
 
 use crate::{
     chat_models::{
@@ -12,7 +13,7 @@ use crate::{
         },
     },
     errors::{openai_errors::OpenaiError, ApiError},
-    schemas::messages::{AIMessage, BaseMessage},
+    schemas::{llm::LlmResponse, messages::BaseMessage},
 };
 
 #[derive(Debug)]
@@ -38,6 +39,7 @@ pub struct ChatOpenAI {
     pub temperature: f32,
     pub openai_key: String,
     pub max_tokens: Option<u32>,
+    pub stream: bool,
 }
 impl ChatOpenAI {
     pub fn new(model: ChatModel, temperature: f32, openai_key: String) -> Self {
@@ -46,11 +48,17 @@ impl ChatOpenAI {
             temperature,
             openai_key,
             max_tokens: None,
+            stream: false,
         }
     }
 
     pub fn with_model(mut self, model: ChatModel) -> Self {
         self.model = model;
+        self
+    }
+
+    pub fn with_stream(mut self) -> Self {
+        self.stream = true;
         self
     }
 
@@ -76,15 +84,17 @@ impl Default for ChatOpenAI {
             temperature: 0.0,
             openai_key: env::var("OPENAI_API_KEY").unwrap_or(String::new()),
             max_tokens: None,
+            stream: false,
         }
     }
 }
+
 #[async_trait]
 impl ChatTrait for ChatOpenAI {
     async fn generate(
         &self,
         messages: Vec<Vec<Box<dyn BaseMessage>>>,
-    ) -> Result<AIMessage, ApiError> {
+    ) -> Result<LlmResponse, ApiError> {
         let flattened_messages: Vec<Message> = messages
             .into_iter()
             .flat_map(|inner_messages| Message::from_base_messages(inner_messages))
@@ -92,36 +102,51 @@ impl ChatTrait for ChatOpenAI {
         log::debug!("flattened_messages: {:?}", flattened_messages);
 
         let client = Client::new();
-        let api_request = ApiRequest {
+        let mut api_request = ApiRequest {
             model: String::from(self.model.as_str()),
             messages: flattened_messages,
             temperature: self.temperature,
             max_tokens: self.max_tokens,
+            stream: None,
         };
 
-        let response = client
+        // Add the 'stream' parameter if streaming is requested
+        if self.stream {
+            api_request.stream = Some(true);
+        }
+
+        let request = client
             .post("https://api.openai.com/v1/chat/completions")
             .header("Content-Type", "application/json")
             .header("Authorization", format!("Bearer {}", self.openai_key))
-            .json(&api_request)
-            .send()
-            .await
-            .map_err(|_| {
-                ApiError::OpenaiError(OpenaiError::new_generic_error(String::from(
-                    "Error deserializing response or unknow error",
+            .json(&api_request);
+
+        if self.stream {
+            let es = EventSource::new(request).map_err(|e| {
+                ApiError::OpenaiError(OpenaiError::new_generic_error(format!(
+                    "Error creating EventSource: {}",
+                    e
                 )))
             })?;
+            return Ok(LlmResponse::Stream(es));
+        }
 
+        let response = request.send().await.map_err(|e| {
+            ApiError::OpenaiError(OpenaiError::new_generic_error(format!(
+                "Error sending request: {}",
+                e
+            )))
+        })?;
         let status = response.status();
-        match response.status() {
+        match status {
             reqwest::StatusCode::OK => {
                 let api_response: ApiResponse = response.json().await.map_err(|_| {
                     ApiError::OpenaiError(OpenaiError::new_generic_error(String::from(
-                        "Error deserializing response or unknow error",
+                        "Error deserializing response or unknown error",
                     )))
                 })?;
                 log::info!(
-                    "Prompt token count: {:?} for madel: {}",
+                    "Prompt token count: {:?} for model: {}",
                     api_response.usage,
                     self.model.as_str()
                 );
@@ -134,18 +159,17 @@ impl ChatTrait for ChatOpenAI {
                     })
                     .map_err(|e| ApiError::OpenaiError(e.clone()))?;
 
-                let ai_message = AIMessage::new(
-                    &response_message
-                        .message
-                        .get("content")
-                        .ok_or_else(|| OpenaiError::ServerError {
-                            code: 500,
-                            detail: String::from("No content in AI message"),
-                        })
-                        .map_err(|e| ApiError::OpenaiError(e.clone()))?
-                        .clone(),
-                );
-                Ok(ai_message)
+                let text_resp = response_message
+                    .message
+                    .get("content")
+                    .ok_or_else(|| OpenaiError::ServerError {
+                        code: 500,
+                        detail: String::from("No content in AI message"),
+                    })
+                    .map_err(|e| ApiError::OpenaiError(e.clone()))?
+                    .clone();
+
+                Ok(LlmResponse::Text(text_resp))
             }
             _ => {
                 let detail: String = response.text().await.unwrap();
