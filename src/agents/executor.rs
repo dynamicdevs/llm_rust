@@ -11,6 +11,7 @@ use crate::{
     prompt::TemplateArgs,
     schemas::{
         agent::{AgentAction, AgentEvent},
+        chain::ChainResponse,
         memory::BaseChatMessageHistory,
         messages::{AIMessage, BaseMessage, HumanMessage},
     },
@@ -55,7 +56,7 @@ impl AgentExecutor {
 
 #[async_trait]
 impl ChainTrait for AgentExecutor {
-    async fn run(&self, input: &dyn TemplateArgs) -> Result<String, Box<dyn Error>> {
+    async fn run(&self, input: &dyn TemplateArgs) -> Result<ChainResponse, Box<dyn Error>> {
         let name_to_tools = self.get_name_to_tools();
 
         let mut steps: Vec<(AgentAction, String)> = Vec::new();
@@ -124,7 +125,7 @@ impl ChainTrait for AgentExecutor {
                         log::debug!("Successfully added AI message to memory");
                     }
 
-                    return Ok(finish.return_values);
+                    return Ok(ChainResponse::Text(finish.return_values));
                 }
             }
 

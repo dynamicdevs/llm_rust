@@ -1,5 +1,3 @@
-use async_trait::async_trait;
-
 use crate::{
     llm::{base::BaseLLM, openai::LLMOpenAI},
     prompt::{BasePromptTemplate, PromptTemplate, TemplateArgs},

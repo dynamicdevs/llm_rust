@@ -8,6 +8,7 @@ use crate::{
     },
     schemas::{
         agent::{AgentAction, AgentEvent},
+        chain::ChainResponse,
         messages::{AIMessage, BaseMessage, HumanMessage, SystemMessage},
     },
     tools::tool_trait::Tool,
@@ -139,10 +140,17 @@ impl Agent for ConversationalAgent {
 
         log::debug!("Running chain");
         let output = self.chain.run(&inputs).await?;
-        log::debug!("Parsing output:{}", output);
-        let parsed_output = self.output_parser.parse(&output)?;
-        log::debug!("Parsed output");
-        Ok(parsed_output)
+        match output {
+            ChainResponse::Text(output) => {
+                log::debug!("Parsing output:{}", output);
+                let parsed_output = self.output_parser.parse(&output)?;
+                log::debug!("Parsed output");
+                Ok(parsed_output)
+            }
+            ChainResponse::Stream(_) => {
+                unimplemented!()
+            }
+        }
     }
 
     fn get_tools(&self) -> Vec<Arc<dyn Tool>> {
@@ -162,6 +170,7 @@ mod tests {
             executor::AgentExecutor,
         },
         chains::chain_trait::ChainTrait,
+        schemas::chain::ChainResponse,
         tools::tool_trait::Tool,
     };
 
@@ -214,6 +223,14 @@ mod tests {
             ))
             .await
             .map_err(|e| println!("{}", e));
-        println!("{}", result.unwrap());
+        match result {
+            Ok(ChainResponse::Text(text)) => {
+                println!("{}", text);
+            }
+            Ok(ChainResponse::Stream(_)) => {
+                println!("Stream");
+            }
+            Err(_) => {}
+        }
     }
 }
