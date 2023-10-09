@@ -1,12 +1,10 @@
-use std::{collections::HashMap, error::Error};
+use std::error::Error;
 
 use async_trait::async_trait;
 
-pub trait InputType {}
-impl InputType for HashMap<String, String> {}
-impl InputType for String {}
+use crate::prompt::TemplateArgs;
 
 #[async_trait]
-pub trait ChainTrait<T: InputType>: Send + Sync {
-    async fn run(&mut self, inputs: T) -> Result<String, Box<dyn Error>>;
+pub trait ChainTrait: Send + Sync {
+    async fn run(&self, input: &dyn TemplateArgs) -> Result<String, Box<dyn Error>>;
 }

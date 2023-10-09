@@ -19,6 +19,7 @@ use crate::{
 pub enum ChatModel {
     Gpt3_5Turbo,
     Gpt3_5Turbo16k,
+    GPT3_5TURBO0613,
     Gpt4,
 }
 impl ChatModel {
@@ -26,6 +27,7 @@ impl ChatModel {
         match *self {
             ChatModel::Gpt3_5Turbo => "gpt-3.5-turbo",
             ChatModel::Gpt3_5Turbo16k => "gpt-3.5-turbo-16k",
+            ChatModel::GPT3_5TURBO0613 => "gpt-3.5-turbo-0613",
             ChatModel::Gpt4 => "gpt-4",
         }
     }

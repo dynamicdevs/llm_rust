@@ -1,11 +1,8 @@
-use std::collections::HashMap;
-
 use async_trait::async_trait;
 
 use crate::{
     llm::{base::BaseLLM, openai::LLMOpenAI},
-    prompt::prompt::PromptTemplate,
-    schemas::prompt::{BasePromptValue, PromptData},
+    prompt::{BasePromptTemplate, PromptTemplate, TemplateArgs},
 };
 
 use super::chain_trait::ChainTrait;
@@ -24,28 +21,15 @@ impl Default for LLMChain {
     fn default() -> Self {
         Self {
             llm: Box::new(LLMOpenAI::default()),
-            prompt: PromptTemplate::new("{{question}}"),
+            prompt: PromptTemplate::from_template("{{input}}"),
         }
     }
 }
 
 #[async_trait]
-impl ChainTrait<String> for LLMChain {
-    async fn run(&mut self, inputs: String) -> Result<String, Box<dyn std::error::Error>> {
-        self.prompt.add_values(PromptData::VecData(vec![inputs]));
-        let prompt = self.prompt.render()?;
-        Ok(self.llm.generate(prompt).await?)
-    }
-}
-
-#[async_trait]
-impl ChainTrait<HashMap<String, String>> for LLMChain {
-    async fn run(
-        &mut self,
-        inputs: HashMap<String, String>,
-    ) -> Result<String, Box<dyn std::error::Error>> {
-        self.prompt.add_values(PromptData::HashMapData(inputs));
-        let prompt = self.prompt.render()?;
+impl ChainTrait for LLMChain {
+    async fn run(&self, inputs: &dyn TemplateArgs) -> Result<String, Box<dyn std::error::Error>> {
+        let prompt = self.prompt.format(inputs)?;
         Ok(self.llm.generate(prompt).await?)
     }
 }
