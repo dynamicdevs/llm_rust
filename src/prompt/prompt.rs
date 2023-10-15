@@ -180,7 +180,7 @@ mod tests {
 
     #[test]
     fn test_format_with_string_template_args() {
-        let template_str = "Hello, {{name}}!";
+        let template_str = "Hello, {{input}}!";
         let template = PromptTemplate::from_template(template_str);
         let name = "Alice".to_string();
 

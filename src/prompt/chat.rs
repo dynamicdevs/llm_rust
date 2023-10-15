@@ -384,7 +384,7 @@ mod tests {
         let chat_prompt =
             ChatPromptTemplate::from_messages(vec![MessageLike::BaseMessagePromptTemplate(
                 Box::new(HumanMessagePromptTemplate::new(
-                    PromptTemplate::from_template("Hello, {{name}} from {{city}}!"),
+                    PromptTemplate::from_template("Hello, {{input}} from {{city}}!"),
                 )),
             )])
             .with_partial_variables(partial_vars);
