@@ -34,7 +34,7 @@ impl AgentOutputParser for ConvoOutputParser {
             .collect::<String>();
 
         log::debug!("Parsing to Agent Action: {}", sanitized_text);
-        let re = Regex::new(r"\{(?:[^{}]|(?R))*\}")?;
+        let re = Regex::new(r"^(?:[^{]*\{(?:[^{}]|(?R))*\}[^}]*)$")?;
         let json_match = re.find(&sanitized_text);
         log::debug!("Finish extracting json");
         let agent_output: AgentOutput = match json_match {
