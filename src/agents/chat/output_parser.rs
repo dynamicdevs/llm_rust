@@ -16,7 +16,7 @@ impl ConvoOutputParser {
     }
 
     fn clean_json_match(&self, matched: &str) -> String {
-        matched.replace("\\\\\"", "\\\"")
+        matched.replace("\\\"", "\"")
     }
 }
 
