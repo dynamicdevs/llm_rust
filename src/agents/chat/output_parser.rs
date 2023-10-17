@@ -18,7 +18,6 @@ impl ConvoOutputParser {
 
 impl AgentOutputParser for ConvoOutputParser {
     fn parse(&self, text: &str) -> Result<AgentEvent, Box<dyn Error>> {
-        // Sanitize the input to replace control characters with spaces
         let sanitized_text = text
             .chars()
             .map(|c| if c.is_control() { ' ' } else { c })
@@ -26,6 +25,7 @@ impl AgentOutputParser for ConvoOutputParser {
 
         log::debug!("Parsing to Agent Action: {}", sanitized_text);
         let re = Regex::new(r"\{(?:[^{}]|(?R))*\}")?;
+        log::debug!("Finish extracting json");
         let json_match = re.find(&sanitized_text);
         let parsed_json: Value = match json_match {
             Some(json_str) => serde_json::from_str(json_str.as_str())?,
@@ -59,6 +59,7 @@ impl AgentOutputParser for ConvoOutputParser {
             )))
         }
     }
+
     fn get_format_instructions(&self) -> &str {
         FORMAT_INSTRUCTIONS
     }
