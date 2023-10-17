@@ -63,7 +63,7 @@ impl AgentOutputParser for ConvoOutputParser {
         } else {
             Err(Box::new(std::io::Error::new(
                 std::io::ErrorKind::Other,
-                format!("Could not parse LLM output: `{}`", sanitized_text),
+                format!("Could not parse LLM output: `{:?}`", parsed_json),
             )))
         }
     }
