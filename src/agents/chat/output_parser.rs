@@ -25,10 +25,13 @@ impl AgentOutputParser for ConvoOutputParser {
 
         log::debug!("Parsing to Agent Action: {}", sanitized_text);
         let re = Regex::new(r"\{(?:[^{}]|(?R))*\}")?;
-        log::debug!("Finish extracting json");
         let json_match = re.find(&sanitized_text);
+        log::debug!("Finish extracting json");
         let parsed_json: Value = match json_match {
-            Some(json_str) => serde_json::from_str(json_str.as_str())?,
+            Some(json_str) => {
+                log::debug!("Json:{:?}", json_str);
+                serde_json::from_str(json_str.as_str())?
+            }
             None => {
                 log::debug!("No JSON found in text: {}", sanitized_text);
                 return Ok(AgentEvent::Finish(AgentFinish {
