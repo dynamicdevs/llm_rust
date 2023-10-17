@@ -14,6 +14,10 @@ impl ConvoOutputParser {
     pub fn new() -> Self {
         Self {}
     }
+
+    fn clean_json_match(&self, matched: &str) -> String {
+        matched.replace("\\\\\"", "\\\"")
+    }
 }
 
 impl AgentOutputParser for ConvoOutputParser {
@@ -29,8 +33,9 @@ impl AgentOutputParser for ConvoOutputParser {
         log::debug!("Finish extracting json");
         let parsed_json: Value = match json_match {
             Some(json_str) => {
-                log::debug!("Json:{:?}", json_str);
-                serde_json::from_str(json_str.as_str())?
+                let cleaned_str = self.clean_json_match(json_str.as_str());
+                log::debug!("Cleaned Json:{:?}", cleaned_str);
+                serde_json::from_str(&cleaned_str)?
             }
             None => {
                 log::debug!("No JSON found in text: {}", sanitized_text);
