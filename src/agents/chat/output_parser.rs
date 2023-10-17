@@ -30,7 +30,6 @@ impl AgentOutputParser for ConvoOutputParser {
         let parsed_json: Value = match json_match {
             Some(json_str) => serde_json::from_str(json_str.as_str())?,
             None => {
-                //If the model dont produce a json it will return it as final answer
                 log::debug!("No JSON found in text: {}", sanitized_text);
                 return Ok(AgentEvent::Finish(AgentFinish {
                     return_values: sanitized_text,
@@ -60,7 +59,6 @@ impl AgentOutputParser for ConvoOutputParser {
             )))
         }
     }
-
     fn get_format_instructions(&self) -> &str {
         FORMAT_INSTRUCTIONS
     }
