@@ -5,9 +5,15 @@ use crate::{
     schemas::agent::{AgentAction, AgentEvent, AgentFinish},
 };
 use regex::Regex;
-use serde_json::Value;
+use serde::Deserialize;
 
 use super::prompt::FORMAT_INSTRUCTIONS;
+
+#[derive(Debug, Deserialize)]
+struct AgentOutput {
+    action: String,
+    action_input: String,
+}
 
 pub struct ConvoOutputParser {}
 impl ConvoOutputParser {
@@ -31,7 +37,7 @@ impl AgentOutputParser for ConvoOutputParser {
         let re = Regex::new(r"\{(?:[^{}]|(?R))*\}")?;
         let json_match = re.find(&sanitized_text);
         log::debug!("Finish extracting json");
-        let parsed_json: Value = match json_match {
+        let agent_output: AgentOutput = match json_match {
             Some(json_str) => {
                 let cleaned_str = self.clean_json_match(json_str.as_str());
                 log::debug!("Cleaned Json:{:?}", cleaned_str);
@@ -45,26 +51,16 @@ impl AgentOutputParser for ConvoOutputParser {
             }
         };
 
-        if let (Some(action), Some(action_input)) = (
-            parsed_json.get("action").and_then(|a| a.as_str()),
-            parsed_json.get("action_input").and_then(|a| a.as_str()),
-        ) {
-            if action == "Final Answer" {
-                Ok(AgentEvent::Finish(AgentFinish {
-                    return_values: action_input.to_string(),
-                }))
-            } else {
-                Ok(AgentEvent::Action(AgentAction {
-                    tool: action.to_string(),
-                    tool_input: action_input.to_string(),
-                    log: sanitized_text,
-                }))
-            }
+        if &agent_output.action == "Final Answer" {
+            Ok(AgentEvent::Finish(AgentFinish {
+                return_values: agent_output.action_input,
+            }))
         } else {
-            Err(Box::new(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Could not parse LLM output: `{:?}`", parsed_json),
-            )))
+            Ok(AgentEvent::Action(AgentAction {
+                tool: agent_output.action,
+                tool_input: agent_output.action_input,
+                log: sanitized_text,
+            }))
         }
     }
 
