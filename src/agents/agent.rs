@@ -4,7 +4,7 @@ use async_trait::async_trait;
 
 use crate::{
     prompt::TemplateArgs,
-    schemas::agent::{AgentAction, AgentEvent},
+    schemas::agent::{AgentAction, AgentEvent, AgentPlan},
     tools::tool_trait::Tool,
 };
 
@@ -14,7 +14,7 @@ pub trait Agent: Send + Sync {
         &self,
         intermediate_steps: &Vec<(AgentAction, String)>,
         inputs: &dyn TemplateArgs,
-    ) -> Result<AgentEvent, Box<dyn Error>>;
+    ) -> Result<AgentPlan, Box<dyn Error>>;
 
     fn get_tools(&self) -> Vec<Arc<dyn Tool>>;
 }

@@ -7,13 +7,16 @@ use crate::{
         PromptTemplate, TemplateArgs,
     },
     schemas::{
-        agent::{AgentAction, AgentEvent},
+        agent::{AgentAction, AgentEvent, AgentPlan},
+        chain::ChainResponse,
         messages::{AIMessage, BaseMessage, HumanMessage, SystemMessage},
+        StreamData,
     },
     tools::tool_trait::Tool,
 };
 use async_trait::async_trait;
 use handlebars::Handlebars;
+use reqwest_eventsource::Event;
 use serde_json::json;
 
 use self::prompt::{FORMAT_INSTRUCTIONS, PREFIX, SUFFIX, TEMPLATE_TOOL_RESPONSE};
@@ -131,7 +134,7 @@ impl Agent for ConversationalAgent {
         &self,
         intermediate_steps: &Vec<(AgentAction, String)>,
         inputs: &dyn TemplateArgs,
-    ) -> Result<AgentEvent, Box<dyn Error>> {
+    ) -> Result<AgentPlan, Box<dyn Error>> {
         log::debug!("Planning");
         let scratchpad = self.construct_scratchpad(&intermediate_steps)?;
         let mut inputs = inputs.clone_as_map();
@@ -139,10 +142,62 @@ impl Agent for ConversationalAgent {
 
         log::debug!("Running chain");
         let output = self.chain.run(&inputs).await?;
-        log::debug!("Parsing output:{}", output);
-        let parsed_output = self.output_parser.parse(&output)?;
-        log::debug!("Parsed output");
-        Ok(parsed_output)
+        match output {
+            ChainResponse::Text(text) => {
+                log::debug!("Parsing output:{}", text);
+                let parsed_output = self.output_parser.parse(&text)?;
+                log::debug!("Parsed output");
+                return Ok(AgentPlan::Text(parsed_output));
+            }
+            ChainResponse::Stream(mut stream) => {
+                let mut complete_message = String::new();
+                while let Some(event_result) = stream.recv().await {
+                    match event_result {
+                        Ok(Event::Message(message)) => {
+                            //TODO: Refactor this, becauese is the same as the one in llm chat
+                            //chain
+                            // Deserialize the JSON data
+                            if let Ok(data) = serde_json::from_str::<StreamData>(&message.data) {
+                                // Only concatenate delta["content"]
+                                if let Some(delta) =
+                                    data.choices.get(0).and_then(|choice| choice.delta.as_ref())
+                                {
+                                    if let Some(content) = &delta.content {
+                                        complete_message.push_str(content);
+                                    }
+                                }
+
+                                // Check for the sequence of tokens
+                                if complete_message.contains("Final")
+                                    && complete_message.contains("Answer")
+                                    && complete_message.contains(":")
+                                {
+                                    return Ok(AgentPlan::Stream(stream)); // Return the stream if the sequence is found
+                                }
+
+                                // Stop the stream when finish_reason is not null
+                                if data
+                                    .choices
+                                    .get(0)
+                                    .and_then(|choice| choice.finish_reason.as_ref())
+                                    .is_some()
+                                {
+                                    break;
+                                }
+                            }
+                        }
+                        Err(err) => {
+                            log::error!("Error receiving message:{}", err);
+                            return Err(err.into());
+                        }
+                        _ => {}
+                    }
+                }
+
+                let parsed_output = self.output_parser.parse(&complete_message)?;
+                return Ok(AgentPlan::Text(parsed_output));
+            }
+        }
     }
 
     fn get_tools(&self) -> Vec<Arc<dyn Tool>> {
@@ -155,6 +210,7 @@ mod tests {
     use std::{error::Error, sync::Arc};
 
     use async_trait::async_trait;
+    use reqwest_eventsource::Event;
 
     use crate::{
         agents::{
@@ -162,6 +218,8 @@ mod tests {
             executor::AgentExecutor,
         },
         chains::chain_trait::ChainTrait,
+        chat_models::openai::ChatModel,
+        schemas::chain::ChainResponse,
         tools::tool_trait::Tool,
     };
 
@@ -201,7 +259,11 @@ mod tests {
     #[tokio::test]
     async fn test_agent_run_with_string() {
         let agent = ConversationalAgent::from_llm_and_tools(
-            Box::new(crate::chat_models::openai::chat_llm::ChatOpenAI::default()),
+            Box::new(
+                crate::chat_models::openai::chat_llm::ChatOpenAI::default()
+                    .with_model(ChatModel::Gpt4)
+                    .with_stream(),
+            ),
             vec![Arc::new(MockPeruPresidentTool), Arc::new(CalcTool)],
             Box::new(ConvoOutputParser::new()),
         );
@@ -213,7 +275,25 @@ mod tests {
                 "Quien es el presidente de peru y cual es su edad multiplicada por 3",
             ))
             .await
-            .map_err(|e| println!("{}", e));
-        println!("{}", result.unwrap());
+            .map_err(|e| println!("{}", e))
+            .unwrap();
+        match result {
+            ChainResponse::Text(text) => {
+                println!("AA{}", text);
+            }
+            ChainResponse::Stream(mut stream) => {
+                while let Some(event_result) = stream.recv().await {
+                    match event_result {
+                        Ok(Event::Message(message)) => {
+                            println!("Streamed message: {:#?}", message);
+                        }
+                        Err(err) => {
+                            println!("Error in stream: {}", err);
+                        }
+                        _ => {} // Handle other events if necessary
+                    }
+                }
+            }
+        }
     }
 }

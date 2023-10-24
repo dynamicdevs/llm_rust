@@ -5,14 +5,18 @@ use std::{
 };
 
 use async_trait::async_trait;
+use reqwest_eventsource::Event;
+use tokio::sync::mpsc;
 
 use crate::{
     chains::chain_trait::ChainTrait,
     prompt::TemplateArgs,
     schemas::{
-        agent::{AgentAction, AgentEvent},
+        agent::{AgentAction, AgentEvent, AgentPlan},
+        chain::ChainResponse,
         memory::BaseChatMessageHistory,
         messages::{AIMessage, BaseMessage, HumanMessage},
+        StreamData,
     },
     tools::tool_trait::Tool,
 };
@@ -55,7 +59,7 @@ impl AgentExecutor {
 
 #[async_trait]
 impl ChainTrait for AgentExecutor {
-    async fn run(&self, input: &dyn TemplateArgs) -> Result<String, Box<dyn Error>> {
+    async fn run(&self, input: &dyn TemplateArgs) -> Result<ChainResponse, Box<dyn Error>> {
         let name_to_tools = self.get_name_to_tools();
 
         let mut steps: Vec<(AgentAction, String)> = Vec::new();
@@ -87,44 +91,113 @@ impl ChainTrait for AgentExecutor {
         loop {
             let agent_event = self.agent.plan(&steps, &input_map).await?;
             match agent_event {
-                AgentEvent::Action(action) => {
-                    log::debug!("Action: {:?}", action.tool_input);
-                    let tool = name_to_tools.get(&action.tool).ok_or("Tool not found")?; //No se si
-                                                                                         //lanzar error o poner este mensage evaluar
-                    let observarion = tool.call(&action.tool_input).await?;
-                    steps.push((action, observarion));
-                }
-                AgentEvent::Finish(finish) => {
-                    log::debug!("AgentEvent::Finish branch entered");
+                AgentPlan::Text(event) => {
+                    match event {
+                        AgentEvent::Action(action) => {
+                            println!("Action: {:?}", action.tool_input);
+                            log::debug!("Action: {:?}", action.tool_input);
+                            let tool = name_to_tools.get(&action.tool).ok_or("Tool not found")?; //No se si
+                                                                                                 //lanzar error o poner este mensage evaluar
+                            let observarion = tool.call(&action.tool_input).await?;
+                            steps.push((action, observarion));
+                        }
+                        AgentEvent::Finish(finish) => {
+                            println!("Finish: {:?}", finish.return_values);
+                            log::debug!("AgentEvent::Finish branch entered");
 
-                    if let Some(memory_arc) = &self.memory {
-                        log::debug!("Attempting to add to memory");
-                        let mut memory_guard = memory_arc
-                            .write()
-                            .map_err(|_| "Failed to acquire write lock")?;
-                        log::debug!("Successfully acquired write lock");
+                            if let Some(memory_arc) = &self.memory {
+                                log::debug!("Attempting to add to memory");
+                                let mut memory_guard = memory_arc
+                                    .write()
+                                    .map_err(|_| "Failed to acquire write lock")?;
+                                log::debug!("Successfully acquired write lock");
 
-                        log::debug!(
-                            "AgentExecutor::run's memory address: {:?}",
-                            memory_arc as *const _
-                        );
-                        let inputs = input.clone_as_map();
-                        let human_str = inputs
-                            .get("input")
-                            .ok_or("Human not found")?
-                            .as_str()
-                            .ok_or("Human not found")?
-                            .to_string();
-                        log::debug!("Adding Human message: {}", human_str.to_string());
-                        memory_guard
-                            .add_message(Box::new(HumanMessage::new(&human_str.to_string())));
-                        log::debug!("Successfully added Human message to memory");
+                                log::debug!(
+                                    "AgentExecutor::run's memory address: {:?}",
+                                    memory_arc as *const _
+                                );
+                                let inputs = input.clone_as_map();
+                                let human_str = inputs
+                                    .get("input")
+                                    .ok_or("Human not found")?
+                                    .as_str()
+                                    .ok_or("Human not found")?
+                                    .to_string();
+                                log::debug!("Adding Human message: {}", human_str.to_string());
+                                memory_guard.add_message(Box::new(HumanMessage::new(
+                                    &human_str.to_string(),
+                                )));
+                                log::debug!("Successfully added Human message to memory");
 
-                        memory_guard.add_message(Box::new(AIMessage::new(&finish.return_values)));
-                        log::debug!("Successfully added AI message to memory");
+                                memory_guard
+                                    .add_message(Box::new(AIMessage::new(&finish.return_values)));
+                                log::debug!("Successfully added AI message to memory");
+                            }
+
+                            return Ok(ChainResponse::Text(finish.return_values));
+                        }
                     }
+                }
+                AgentPlan::Stream(mut internal_stream) => {
+                    let (tx, rx) = mpsc::channel(100);
 
-                    return Ok(finish.return_values);
+                    // Clone necessary data
+                    let memory_arc_clone = self.memory.clone();
+
+                    let inputs = input.clone_as_map();
+                    let human_str = inputs
+                        .get("input")
+                        .ok_or("Human not found")?
+                        .as_str()
+                        .ok_or("Human not found")?
+                        .to_string();
+                    // Spawn a new asynchronous task to handle stream
+                    tokio::spawn(async move {
+                        let mut concatenated_stream_content = String::new();
+
+                        while let Some(event) = internal_stream.recv().await {
+                            match &event {
+                                Ok(Event::Message(message)) => {
+                                    // Deserialize the JSON data
+                                    if let Ok(data) =
+                                        serde_json::from_str::<StreamData>(&message.data)
+                                    {
+                                        // Only concatenate delta["content"]
+                                        if let Some(delta) = data
+                                            .choices
+                                            .get(0)
+                                            .and_then(|choice| choice.delta.as_ref())
+                                        {
+                                            if let Some(content) = &delta.content {
+                                                concatenated_stream_content.push_str(content);
+                                            }
+                                        }
+
+                                        // Stop the stream when finish_reason is not null
+                                        if data
+                                            .choices
+                                            .get(0)
+                                            .and_then(|choice| choice.finish_reason.as_ref())
+                                            .is_some()
+                                        {
+                                            break;
+                                        }
+                                    }
+                                }
+                                _ => {}
+                            }
+
+                            if let Err(_) = tx.send(event).await {
+                                eprintln!("Failed to send the event to the channel");
+                                break;
+                            }
+                        }
+
+                        // Save to memory
+                        save_to_memory(&memory_arc_clone, &human_str, &concatenated_stream_content);
+                    });
+
+                    return Ok(ChainResponse::Stream(rx));
                 }
             }
 
@@ -134,6 +207,21 @@ impl ChainTrait for AgentExecutor {
                     return Err("Max iterations reached".into());
                 }
             }
+        }
+    }
+}
+
+fn save_to_memory(
+    memory_arc_clone: &Option<Arc<RwLock<dyn BaseChatMessageHistory>>>,
+    human_message: &str,
+    concatenated_stream_content: &String,
+) {
+    if let Some(memory_arc) = memory_arc_clone {
+        if let Ok(mut memory_guard) = memory_arc.write() {
+            memory_guard.add_message(Box::new(HumanMessage::new(human_message)));
+            memory_guard.add_message(Box::new(AIMessage::new(concatenated_stream_content)));
+        } else {
+            eprintln!("Failed to acquire write lock for memory");
         }
     }
 }

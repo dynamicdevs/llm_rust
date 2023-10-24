@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
+use reqwest_eventsource::Event;
 use serde::{Deserialize, Serialize};
+use tokio::sync::mpsc;
 
 pub enum ToolInput {
     //Will implement this in the future
@@ -23,4 +25,9 @@ pub struct AgentFinish {
 pub enum AgentEvent {
     Action(AgentAction),
     Finish(AgentFinish),
+}
+
+pub enum AgentPlan {
+    Text(AgentEvent),
+    Stream(mpsc::Receiver<Result<Event, reqwest_eventsource::Error>>),
 }
