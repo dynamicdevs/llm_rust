@@ -7,17 +7,16 @@ use crate::{
         PromptTemplate, TemplateArgs,
     },
     schemas::{
-        agent::{AgentAction, AgentEvent, AgentPlan},
+        agent::{AgentAction, AgentPlan},
         chain::ChainResponse,
         messages::{AIMessage, BaseMessage, HumanMessage, SystemMessage},
-        StreamData,
     },
     tools::tool_trait::Tool,
 };
 use async_trait::async_trait;
 use handlebars::Handlebars;
-use reqwest_eventsource::Event;
 use serde_json::json;
+use tokio::sync::mpsc;
 
 use self::prompt::{FORMAT_INSTRUCTIONS, PREFIX, SUFFIX, TEMPLATE_TOOL_RESPONSE};
 
@@ -151,46 +150,54 @@ impl Agent for ConversationalAgent {
             }
             ChainResponse::Stream(mut stream) => {
                 let mut complete_message = String::new();
-                while let Some(event_result) = stream.recv().await {
-                    match event_result {
-                        Ok(Event::Message(message)) => {
-                            //TODO: Refactor this, becauese is the same as the one in llm chat
-                            //chain
-                            // Deserialize the JSON data
-                            if let Ok(data) = serde_json::from_str::<StreamData>(&message.data) {
-                                // Only concatenate delta["content"]
-                                if let Some(delta) =
-                                    data.choices.get(0).and_then(|choice| choice.delta.as_ref())
-                                {
-                                    if let Some(content) = &delta.content {
-                                        complete_message.push_str(content);
+                let (tx, mut temp_rx) =
+                    mpsc::channel::<Result<String, reqwest_eventsource::Error>>(100);
+
+                tokio::spawn(async move {
+                    while let Some(event_result) = stream.recv().await {
+                        match event_result {
+                            Ok(message) => {
+                                if message.contains(".\"") {
+                                    // Send the '.' to the channel and then break
+                                    let modified_message = message.replace(".\"", ".");
+                                    if tx.send(Ok(modified_message)).await.is_err() {
+                                        eprintln!("Failed to send message to the channel");
+                                    }
+                                    break;
+                                } else {
+                                    if tx.send(Ok(message.clone())).await.is_err() {
+                                        eprintln!("Failed to send message to the channel");
+                                        break;
                                     }
                                 }
-
-                                // Check for the sequence of tokens
-                                if complete_message.contains("Final")
-                                    && complete_message.contains("Answer")
-                                    && complete_message.contains(":")
-                                {
-                                    return Ok(AgentPlan::Stream(stream)); // Return the stream if the sequence is found
+                            }
+                            Err(err) => {
+                                eprintln!("Error while processing the stream: {:?}", err);
+                                if tx.send(Err(err)).await.is_err() {
+                                    eprintln!("Failed to send error to the channel");
                                 }
+                                break;
+                            }
+                        }
+                    }
+                });
 
-                                // Stop the stream when finish_reason is not null
-                                if data
-                                    .choices
-                                    .get(0)
-                                    .and_then(|choice| choice.finish_reason.as_ref())
-                                    .is_some()
-                                {
-                                    break;
-                                }
+                // Consume the temporary stream
+                while let Some(temp_event_result) = temp_rx.recv().await {
+                    match temp_event_result {
+                        Ok(message) => {
+                            complete_message.push_str(&message);
+
+                            if complete_message.contains("Final Answer")
+                                && complete_message.contains(r#""action_input": ""#)
+                            {
+                                return Ok(AgentPlan::Stream(temp_rx));
                             }
                         }
                         Err(err) => {
                             log::error!("Error receiving message:{}", err);
                             return Err(err.into());
                         }
-                        _ => {}
                     }
                 }
 
@@ -210,7 +217,6 @@ mod tests {
     use std::{error::Error, sync::Arc};
 
     use async_trait::async_trait;
-    use reqwest_eventsource::Event;
 
     use crate::{
         agents::{
@@ -272,25 +278,24 @@ mod tests {
 
         let result = exec
             .run(&String::from(
-                "Quien es el presidente de peru y cual es su edad multiplicada por 3",
+                "Quien es el presidente de peru y cual es su edad multiplicada por 10",
             ))
             .await
             .map_err(|e| println!("{}", e))
             .unwrap();
         match result {
             ChainResponse::Text(text) => {
-                println!("AA{}", text);
+                println!("{}", text);
             }
             ChainResponse::Stream(mut stream) => {
                 while let Some(event_result) = stream.recv().await {
                     match event_result {
-                        Ok(Event::Message(message)) => {
+                        Ok(message) => {
                             println!("Streamed message: {:#?}", message);
                         }
                         Err(err) => {
                             println!("Error in stream: {}", err);
                         }
-                        _ => {} // Handle other events if necessary
                     }
                 }
             }

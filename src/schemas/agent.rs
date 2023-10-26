@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use reqwest_eventsource::Event;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 
@@ -29,5 +28,5 @@ pub enum AgentEvent {
 
 pub enum AgentPlan {
     Text(AgentEvent),
-    Stream(mpsc::Receiver<Result<Event, reqwest_eventsource::Error>>),
+    Stream(mpsc::Receiver<Result<String, reqwest_eventsource::Error>>),
 }

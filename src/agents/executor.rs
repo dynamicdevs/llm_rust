@@ -5,7 +5,6 @@ use std::{
 };
 
 use async_trait::async_trait;
-use reqwest_eventsource::Event;
 use tokio::sync::mpsc;
 
 use crate::{
@@ -16,7 +15,6 @@ use crate::{
         chain::ChainResponse,
         memory::BaseChatMessageHistory,
         messages::{AIMessage, BaseMessage, HumanMessage},
-        StreamData,
     },
     tools::tool_trait::Tool,
 };
@@ -157,32 +155,10 @@ impl ChainTrait for AgentExecutor {
 
                         while let Some(event) = internal_stream.recv().await {
                             match &event {
-                                Ok(Event::Message(message)) => {
-                                    // Deserialize the JSON data
-                                    if let Ok(data) =
-                                        serde_json::from_str::<StreamData>(&message.data)
-                                    {
-                                        // Only concatenate delta["content"]
-                                        if let Some(delta) = data
-                                            .choices
-                                            .get(0)
-                                            .and_then(|choice| choice.delta.as_ref())
-                                        {
-                                            if let Some(content) = &delta.content {
-                                                concatenated_stream_content.push_str(content);
-                                            }
-                                        }
+                                Ok(message) => {
+                                    concatenated_stream_content.push_str(&message);
 
-                                        // Stop the stream when finish_reason is not null
-                                        if data
-                                            .choices
-                                            .get(0)
-                                            .and_then(|choice| choice.finish_reason.as_ref())
-                                            .is_some()
-                                        {
-                                            break;
-                                        }
-                                    }
+                                    // Stop the stream when finish_reason is not null
                                 }
                                 _ => {}
                             }

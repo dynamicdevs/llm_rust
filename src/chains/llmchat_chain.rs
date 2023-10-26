@@ -111,8 +111,9 @@ impl LLMChatChain {
 
                 return Ok(ChainResponse::Text(response));
             }
+
             LlmResponse::Stream(es) => {
-                let (tx, rx) = mpsc::channel(100);
+                let (tx, rx) = mpsc::channel::<Result<String, reqwest_eventsource::Error>>(100);
 
                 // Clone needed data
                 let memory_arc_clone = self.memory.clone();
@@ -123,7 +124,7 @@ impl LLMChatChain {
                     let mut internal_es = es;
 
                     while let Some(event) = internal_es.next().await {
-                        match &event {
+                        match event {
                             Ok(Event::Message(message)) => {
                                 // Deserialize the JSON data
                                 if let Ok(data) = serde_json::from_str::<StreamData>(&message.data)
@@ -134,6 +135,13 @@ impl LLMChatChain {
                                     {
                                         if let Some(content) = &delta.content {
                                             concatenated_stream_content.push_str(content);
+                                            // Send just the delta.content through the tx channel
+                                            if let Err(_) = tx.send(Ok(content.clone())).await {
+                                                eprintln!(
+                                                    "Failed to send the content to the channel"
+                                                );
+                                                break;
+                                            }
                                         }
                                     }
 
@@ -148,12 +156,16 @@ impl LLMChatChain {
                                     }
                                 }
                             }
+                            Err(e) => {
+                                eprintln!("Error while processing the stream: {:?}", e);
+                                // Send the error through the tx channel
+                                if let Err(_) = tx.send(Err(e)).await {
+                                    eprintln!("Failed to send the error to the channel");
+                                    break;
+                                }
+                            }
+                            // For other event types, you might want to decide how to handle them
                             _ => {}
-                        }
-
-                        if let Err(_) = tx.send(event).await {
-                            eprintln!("Failed to send the event to the channel");
-                            break;
                         }
                     }
 
@@ -201,7 +213,6 @@ impl ChainTrait for LLMChatChain {
 
 #[cfg(test)]
 mod tests {
-    use reqwest_eventsource::Event;
 
     use crate::{
         chains::llmchat_chain::LLMChatChain,
@@ -259,13 +270,12 @@ mod tests {
                 println!("Returned stream:");
                 while let Some(event_result) = stream.recv().await {
                     match event_result {
-                        Ok(Event::Message(message)) => {
+                        Ok(message) => {
                             println!("Streamed message: {:#?}", message);
                         }
                         Err(err) => {
                             println!("Error in stream: {}", err);
                         }
-                        _ => {} // Handle other events if necessary
                     }
                 }
             }
