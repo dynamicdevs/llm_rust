@@ -157,12 +157,7 @@ impl Agent for ConversationalAgent {
                     while let Some(event_result) = stream.recv().await {
                         match event_result {
                             Ok(message) => {
-                                if message.contains(".\"") {
-                                    // Send the '.' to the channel and then break
-                                    let modified_message = message.replace(".\"", ".");
-                                    if tx.send(Ok(modified_message)).await.is_err() {
-                                        eprintln!("Failed to send message to the channel");
-                                    }
+                                if message.contains("}") {
                                     break;
                                 } else {
                                     if tx.send(Ok(message.clone())).await.is_err() {
@@ -277,9 +272,7 @@ mod tests {
         let exec = AgentExecutor::from_agent(Box::new(agent.unwrap()));
 
         let result = exec
-            .run(&String::from(
-                "Quien es el presidente de peru y cual es su edad multiplicada por 10",
-            ))
+            .run(&String::from("Hola"))
             .await
             .map_err(|e| println!("{}", e))
             .unwrap();
