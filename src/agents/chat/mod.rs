@@ -196,6 +196,8 @@ impl Agent for ConversationalAgent {
                     }
                 }
 
+                complete_message.push_str("}```");
+                println!("{}", complete_message);
                 let parsed_output = self.output_parser.parse(&complete_message)?;
                 return Ok(AgentPlan::Text(parsed_output));
             }
@@ -272,7 +274,7 @@ mod tests {
         let exec = AgentExecutor::from_agent(Box::new(agent.unwrap()));
 
         let result = exec
-            .run(&String::from("Hola"))
+            .run(&String::from("Quien es el presindente de peru"))
             .await
             .map_err(|e| println!("{}", e))
             .unwrap();
