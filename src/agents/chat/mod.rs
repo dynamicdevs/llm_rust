@@ -157,7 +157,6 @@ impl Agent for ConversationalAgent {
                     while let Some(event_result) = stream.recv().await {
                         match event_result {
                             Ok(message) => {
-                                println!("{}", message);
                                 if message.contains("}") && !message.contains(r#"}""#) {
                                     break;
                                 } else {
