@@ -7,7 +7,8 @@ use crate::{
         PromptTemplate, TemplateArgs,
     },
     schemas::{
-        agent::{AgentAction, AgentEvent},
+        agent::{AgentAction, AgentPlan},
+        chain::ChainResponse,
         messages::{AIMessage, BaseMessage, HumanMessage, SystemMessage},
     },
     tools::tool_trait::Tool,
@@ -15,6 +16,7 @@ use crate::{
 use async_trait::async_trait;
 use handlebars::Handlebars;
 use serde_json::json;
+use tokio::sync::mpsc;
 
 use self::prompt::{FORMAT_INSTRUCTIONS, PREFIX, SUFFIX, TEMPLATE_TOOL_RESPONSE};
 
@@ -131,7 +133,7 @@ impl Agent for ConversationalAgent {
         &self,
         intermediate_steps: &Vec<(AgentAction, String)>,
         inputs: &dyn TemplateArgs,
-    ) -> Result<AgentEvent, Box<dyn Error>> {
+    ) -> Result<AgentPlan, Box<dyn Error>> {
         log::debug!("Planning");
         let scratchpad = self.construct_scratchpad(&intermediate_steps)?;
         let mut inputs = inputs.clone_as_map();
@@ -139,10 +141,66 @@ impl Agent for ConversationalAgent {
 
         log::debug!("Running chain");
         let output = self.chain.run(&inputs).await?;
-        log::debug!("Parsing output:{}", output);
-        let parsed_output = self.output_parser.parse(&output)?;
-        log::debug!("Parsed output");
-        Ok(parsed_output)
+        match output {
+            ChainResponse::Text(text) => {
+                log::debug!("Parsing output:{}", text);
+                let parsed_output = self.output_parser.parse(&text)?;
+                log::debug!("Parsed output");
+                return Ok(AgentPlan::Text(parsed_output));
+            }
+            ChainResponse::Stream(mut stream) => {
+                let mut complete_message = String::new();
+                let (tx, mut temp_rx) =
+                    mpsc::channel::<Result<String, reqwest_eventsource::Error>>(100);
+
+                tokio::spawn(async move {
+                    while let Some(event_result) = stream.recv().await {
+                        match event_result {
+                            Ok(message) => {
+                                if message.contains("}") {
+                                    break;
+                                } else {
+                                    if tx.send(Ok(message.clone())).await.is_err() {
+                                        eprintln!("Failed to send message to the channel");
+                                        break;
+                                    }
+                                }
+                            }
+                            Err(err) => {
+                                eprintln!("Error while processing the stream: {:?}", err);
+                                if tx.send(Err(err)).await.is_err() {
+                                    eprintln!("Failed to send error to the channel");
+                                }
+                                break;
+                            }
+                        }
+                    }
+                });
+
+                // Consume the temporary stream
+                while let Some(temp_event_result) = temp_rx.recv().await {
+                    match temp_event_result {
+                        Ok(message) => {
+                            complete_message.push_str(&message);
+
+                            if complete_message.contains("Final Answer")
+                                && complete_message.contains(r#""action_input": ""#)
+                            {
+                                return Ok(AgentPlan::Stream(temp_rx));
+                            }
+                        }
+                        Err(err) => {
+                            log::error!("Error receiving message:{}", err);
+                            return Err(err.into());
+                        }
+                    }
+                }
+
+                complete_message.push_str("}```");
+                let parsed_output = self.output_parser.parse(&complete_message)?;
+                return Ok(AgentPlan::Text(parsed_output));
+            }
+        }
     }
 
     fn get_tools(&self) -> Vec<Arc<dyn Tool>> {
@@ -162,6 +220,8 @@ mod tests {
             executor::AgentExecutor,
         },
         chains::chain_trait::ChainTrait,
+        chat_models::openai::ChatModel,
+        schemas::chain::ChainResponse,
         tools::tool_trait::Tool,
     };
 
@@ -201,7 +261,11 @@ mod tests {
     #[tokio::test]
     async fn test_agent_run_with_string() {
         let agent = ConversationalAgent::from_llm_and_tools(
-            Box::new(crate::chat_models::openai::chat_llm::ChatOpenAI::default()),
+            Box::new(
+                crate::chat_models::openai::chat_llm::ChatOpenAI::default()
+                    .with_model(ChatModel::Gpt4)
+                    .with_stream(),
+            ),
             vec![Arc::new(MockPeruPresidentTool), Arc::new(CalcTool)],
             Box::new(ConvoOutputParser::new()),
         );
@@ -209,11 +273,26 @@ mod tests {
         let exec = AgentExecutor::from_agent(Box::new(agent.unwrap()));
 
         let result = exec
-            .run(&String::from(
-                "Quien es el presidente de peru y cual es su edad multiplicada por 3",
-            ))
+            .run(&String::from("Quien es el presindente de peru"))
             .await
-            .map_err(|e| println!("{}", e));
-        println!("{}", result.unwrap());
+            .map_err(|e| println!("{}", e))
+            .unwrap();
+        match result {
+            ChainResponse::Text(text) => {
+                println!("{}", text);
+            }
+            ChainResponse::Stream(mut stream) => {
+                while let Some(event_result) = stream.recv().await {
+                    match event_result {
+                        Ok(message) => {
+                            println!("Streamed message: {:#?}", message);
+                        }
+                        Err(err) => {
+                            println!("Error in stream: {}", err);
+                        }
+                    }
+                }
+            }
+        }
     }
 }
