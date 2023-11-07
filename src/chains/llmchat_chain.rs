@@ -137,9 +137,6 @@ impl LLMChatChain {
                                             concatenated_stream_content.push_str(content);
                                             // Send just the delta.content through the tx channel
                                             if let Err(_) = tx.send(Ok(content.clone())).await {
-                                                eprintln!(
-                                                    "Failed to send the content to the channel"
-                                                );
                                                 break;
                                             }
                                         }
