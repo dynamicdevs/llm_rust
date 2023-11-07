@@ -92,7 +92,6 @@ impl ChainTrait for AgentExecutor {
                 AgentPlan::Text(event) => {
                     match event {
                         AgentEvent::Action(action) => {
-                            println!("Action: {:?}", action.tool_input);
                             log::debug!("Action: {:?}", action.tool_input);
                             let tool = name_to_tools.get(&action.tool).ok_or("Tool not found")?; //No se si
                                                                                                  //lanzar error o poner este mensage evaluar
