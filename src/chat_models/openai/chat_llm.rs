@@ -22,6 +22,7 @@ pub enum ChatModel {
     Gpt3_5Turbo16k,
     GPT3_5TURBO0613,
     Gpt4,
+    Gpt4TURBO,
 }
 impl ChatModel {
     pub fn as_str(&self) -> &str {
@@ -30,6 +31,7 @@ impl ChatModel {
             ChatModel::Gpt3_5Turbo16k => "gpt-3.5-turbo-16k",
             ChatModel::GPT3_5TURBO0613 => "gpt-3.5-turbo-0613",
             ChatModel::Gpt4 => "gpt-4",
+            ChatModel::Gpt4TURBO => "gpt-4-1106-preview",
         }
     }
 }
