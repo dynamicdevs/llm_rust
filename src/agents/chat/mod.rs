@@ -157,7 +157,8 @@ impl Agent for ConversationalAgent {
                     while let Some(event_result) = stream.recv().await {
                         match event_result {
                             Ok(message) => {
-                                if message.contains("}") {
+                                println!("{}", message);
+                                if message.contains("}") && !message.contains(r#"}""#) {
                                     break;
                                 } else {
                                     if tx.send(Ok(message.clone())).await.is_err() {
@@ -230,11 +231,14 @@ mod tests {
     #[async_trait]
     impl Tool for MockPeruPresidentTool {
         fn name(&self) -> String {
-            "Get the current president".to_string()
+            "Get products by name".to_string()
         }
 
         fn description(&self) -> String {
-            "A wrapper around Google Search. Useful for when you need to answer questions about current events. Input should be a search query.".to_string()
+            "
+A wrapper around M&V Product Information. Useful for when you need to get the information of a product. Input should be a JSON with the product or products names and the human question. Example 1: {\"products\":[\"name1\"],\"query\":\"cuata memoria tiene\"} Example 2: {\"products\":[\"name1\",\"name2\"],\"query\":\"compara el name1 y el name2\"} You should use this tool until you get an answer.
+"
+                .to_string()
         }
 
         async fn call(&self, _input: &str) -> Result<String, Box<dyn Error>> {
@@ -263,7 +267,7 @@ mod tests {
         let agent = ConversationalAgent::from_llm_and_tools(
             Box::new(
                 crate::chat_models::openai::chat_llm::ChatOpenAI::default()
-                    .with_model(ChatModel::Gpt4)
+                    .with_model(ChatModel::Gpt4TURBO)
                     .with_stream(),
             ),
             vec![Arc::new(MockPeruPresidentTool), Arc::new(CalcTool)],
@@ -273,7 +277,7 @@ mod tests {
         let exec = AgentExecutor::from_agent(Box::new(agent.unwrap()));
 
         let result = exec
-            .run(&String::from("Quien es el presindente de peru"))
+            .run(&String::from("Que chip tiene la macbook pro m1 "))
             .await
             .map_err(|e| println!("{}", e))
             .unwrap();
