@@ -8,6 +8,8 @@ pub struct ApiRequest {
     pub messages: Vec<Message>,
     pub max_tokens: Option<u32>,
     pub temperature: f32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stream: Option<bool>,
 }
 
 #[derive(Deserialize, Debug)]
