@@ -153,8 +153,6 @@ impl ChainTrait for AgentExecutor {
                             match &event {
                                 Ok(message) => {
                                     concatenated_stream_content.push_str(&message);
-
-                                    // Stop the stream when finish_reason is not null
                                 }
                                 _ => {}
                             }
