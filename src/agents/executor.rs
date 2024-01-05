@@ -1,11 +1,7 @@
-use std::{
-    collections::HashMap,
-    error::Error,
-    sync::{Arc, RwLock},
-};
+use std::{collections::HashMap, error::Error, sync::Arc};
 
 use async_trait::async_trait;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, RwLock};
 
 use crate::{
     chains::chain_trait::ChainTrait,
@@ -68,9 +64,7 @@ impl ChainTrait for AgentExecutor {
         let mut input_map = input.clone_as_map();
 
         if let Some(memory_arc) = &self.memory {
-            let memory_guard = memory_arc
-                .read()
-                .map_err(|_| "Failed to acquire read lock")?;
+            let memory_guard = memory_arc.read().await;
             let message_history = memory_guard;
 
             log::debug!("Messaage History");
@@ -104,9 +98,7 @@ impl ChainTrait for AgentExecutor {
 
                             if let Some(memory_arc) = &self.memory {
                                 log::debug!("Attempting to add to memory");
-                                let mut memory_guard = memory_arc
-                                    .write()
-                                    .map_err(|_| "Failed to acquire write lock")?;
+                                let mut memory_guard = memory_arc.write().await;
                                 log::debug!("Successfully acquired write lock");
 
                                 let inputs = input.clone_as_map();
@@ -163,7 +155,8 @@ impl ChainTrait for AgentExecutor {
                         }
 
                         // Save to memory
-                        save_to_memory(&memory_arc_clone, &human_str, &concatenated_stream_content);
+                        save_to_memory(&memory_arc_clone, &human_str, &concatenated_stream_content)
+                            .await;
                     });
 
                     return Ok(ChainResponse::Stream(rx));
@@ -180,17 +173,14 @@ impl ChainTrait for AgentExecutor {
     }
 }
 
-fn save_to_memory(
+async fn save_to_memory(
     memory_arc_clone: &Option<Arc<RwLock<dyn BaseChatMessageHistory>>>,
     human_message: &str,
     concatenated_stream_content: &String,
 ) {
     if let Some(memory_arc) = memory_arc_clone {
-        if let Ok(mut memory_guard) = memory_arc.write() {
-            memory_guard.add_message(Box::new(HumanMessage::new(human_message)));
-            memory_guard.add_message(Box::new(AIMessage::new(concatenated_stream_content)));
-        } else {
-            eprintln!("Failed to acquire write lock for memory");
-        }
+        let mut memory_guard = memory_arc.write().await;
+        memory_guard.add_message(Box::new(HumanMessage::new(human_message)));
+        memory_guard.add_message(Box::new(AIMessage::new(concatenated_stream_content)));
     }
 }

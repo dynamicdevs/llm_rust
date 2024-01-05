@@ -1,12 +1,9 @@
-use std::{
-    error::Error,
-    sync::{Arc, RwLock},
-};
+use std::{error::Error, sync::Arc};
 
 use async_trait::async_trait;
 use futures::StreamExt;
 use reqwest_eventsource::Event;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, RwLock};
 
 use crate::{
     chat_models::chat_model_trait::ChatTrait,
@@ -57,7 +54,7 @@ impl LLMChatChain {
         self
     }
 
-    fn order_messages(
+    async fn order_messages(
         &self,
         prompt_messages: Vec<Box<dyn BaseMessage>>,
     ) -> Result<Vec<Vec<Box<dyn BaseMessage>>>, Box<dyn Error>> {
@@ -69,9 +66,7 @@ impl LLMChatChain {
 
         {
             let memory_messages = if let Some(memory_arc) = self.memory.as_ref() {
-                let memory_lock = memory_arc
-                    .read()
-                    .map_err(|_| "Failed to acquire read lock")?;
+                let memory_lock = memory_arc.read().await;
                 memory_lock.messages()
             } else {
                 Vec::new()
@@ -92,15 +87,13 @@ impl LLMChatChain {
         &self,
         prompt_messages: Vec<Box<dyn BaseMessage>>,
     ) -> Result<ChainResponse, Box<dyn Error>> {
-        let all_messages = self.order_messages(prompt_messages.clone())?;
+        let all_messages = self.order_messages(prompt_messages.clone()).await?;
 
         let response = self.llm.generate(all_messages).await?;
         match response {
             LlmResponse::Text(response) => {
                 if let Some(memory_arc) = &self.memory {
-                    let mut memory_guard = memory_arc
-                        .write()
-                        .map_err(|_| "Failed to acquire write lock")?;
+                    let mut memory_guard = memory_arc.write().await;
                     for message in &prompt_messages {
                         if message.get_type() == String::from("user") {
                             memory_guard.add_message(message.clone());
@@ -171,7 +164,8 @@ impl LLMChatChain {
                         &memory_arc_clone,
                         &prompt_messages_clone,
                         &concatenated_stream_content,
-                    );
+                    )
+                    .await;
                 });
 
                 Ok(ChainResponse::Stream(rx))
@@ -180,22 +174,19 @@ impl LLMChatChain {
     }
 }
 
-fn save_to_memory(
+async fn save_to_memory(
     memory_arc_clone: &Option<Arc<RwLock<dyn BaseChatMessageHistory>>>,
     prompt_messages_clone: &Vec<Box<dyn BaseMessage>>,
     concatenated_stream_content: &String,
 ) {
     if let Some(memory_arc) = memory_arc_clone {
-        if let Ok(mut memory_guard) = memory_arc.write() {
-            for message in prompt_messages_clone {
-                if message.get_type() == String::from("user") {
-                    memory_guard.add_message(message.clone());
-                }
+        let mut memory_guard = memory_arc.write().await;
+        for message in prompt_messages_clone {
+            if message.get_type() == String::from("user") {
+                memory_guard.add_message(message.clone());
             }
-            memory_guard.add_message(Box::new(AIMessage::new(concatenated_stream_content)));
-        } else {
-            eprintln!("Failed to acquire write lock for memory");
         }
+        memory_guard.add_message(Box::new(AIMessage::new(concatenated_stream_content)));
     }
 }
 
@@ -281,17 +272,14 @@ mod tests {
             }
         }
 
-        if let Ok(memory_lock) = memory.read() {
-            println!("Contents of the memory:");
-            for message in memory_lock.messages.iter() {
-                println!(
-                    "Type: {}, Content: {}",
-                    message.get_type(),
-                    message.get_content()
-                );
-            }
-        } else {
-            println!("Failed to acquire a read lock on the memory.");
-        };
+        let memory_lock = memory.read().await;
+        println!("Contents of the memory:");
+        for message in memory_lock.messages.iter() {
+            println!(
+                "Type: {}, Content: {}",
+                message.get_type(),
+                message.get_content()
+            );
+        }
     }
 }
