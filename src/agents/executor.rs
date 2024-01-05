@@ -109,10 +109,6 @@ impl ChainTrait for AgentExecutor {
                                     .map_err(|_| "Failed to acquire write lock")?;
                                 log::debug!("Successfully acquired write lock");
 
-                                log::debug!(
-                                    "AgentExecutor::run's memory address: {:?}",
-                                    memory_arc as *const _
-                                );
                                 let inputs = input.clone_as_map();
                                 let human_str = inputs
                                     .get("input")
@@ -156,8 +152,6 @@ impl ChainTrait for AgentExecutor {
                             match &event {
                                 Ok(message) => {
                                     concatenated_stream_content.push_str(&message);
-
-                                    // Stop the stream when finish_reason is not null
                                 }
                                 _ => {}
                             }
