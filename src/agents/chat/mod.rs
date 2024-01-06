@@ -184,7 +184,7 @@ impl Agent for ConversationalAgent {
                             complete_message.push_str(&message);
 
                             if complete_message.contains("Final Answer")
-                                && complete_message.contains(r#""action_input":""#)
+                                && complete_message.contains(r#""action_input": ""#)
                             {
                                 return Ok(AgentPlan::Stream(temp_rx));
                             }
